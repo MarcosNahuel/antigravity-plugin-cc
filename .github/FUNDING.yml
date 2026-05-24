@@ -1,0 +1,4 @@
+# Lets the GitHub "Sponsor" button appear on the repo header.
+# You can remove this file if you don't want it.
+github: [MarcosNahuel]
+custom: ["https://traidai.com"]

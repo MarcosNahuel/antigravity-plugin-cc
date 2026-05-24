@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest a new slash command, flag, or capability
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the workflow you wish were easier.
+      placeholder: When I'm doing X, I'd like to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed shape
+      description: If you've thought about how it could look (slash command, flag, output format), describe it here.
+      placeholder: A new /agy:fact-check command that takes a claim and returns true/false with citations...
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+      placeholder: I tried doing this with /agy:research but...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: How big is this?
+      options:
+        - Tiny (one extra flag on an existing command)
+        - Medium (a new slash command with the existing subagent)
+        - Large (new subagent, new files, new patterns)
+    validations:
+      required: true

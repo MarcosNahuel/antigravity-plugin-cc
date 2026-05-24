@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or help using the plugin
+    url: https://github.com/MarcosNahuel/antigravity-plugin-cc/discussions
+    about: For usage questions, prompt-tuning tips, and general discussion, please use GitHub Discussions instead of issues.
+  - name: Antigravity CLI bug or missing feature
+    url: https://antigravity.google
+    about: If the underlying agy CLI is the problem, report it to Google.
+  - name: Claude Code bug
+    url: https://github.com/anthropics/claude-code/issues
+    about: If Claude Code itself is the problem, report it to Anthropic.

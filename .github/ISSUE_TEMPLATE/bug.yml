@@ -1,0 +1,55 @@
+name: Bug report
+description: Something is broken or behaving unexpectedly
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear, concise description of the bug.
+      placeholder: When I ran /agy:research foo, it...
+    validations:
+      required: true
+
+  - type: textarea
+    id: agy-setup
+    attributes:
+      label: Output of /agy:setup
+      description: Paste the exact output. This tells us the agy version, binary path, and ping status.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: e.g. Windows 11, macOS 15.1, Ubuntu 24.04
+    validations:
+      required: true
+
+  - type: input
+    id: claude-code-version
+    attributes:
+      label: Claude Code version
+      description: Run `claude --version` to get this.
+      placeholder: e.g. 1.0.42
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command that triggered the bug
+      placeholder: /agy:research feature flags postgres vs redis --intensity high
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      placeholder: I expected a markdown file in docs/agy/research/ with...
+    validations:
+      required: false
