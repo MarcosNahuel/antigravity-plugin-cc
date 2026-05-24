@@ -1,6 +1,6 @@
 ---
 description: Run deep web research with Antigravity (agy) at chosen intensity. Saves output to docs/agy/research/ automatically.
-argument-hint: "[--intensity low|medium|high] [--model flash|pro|flash-lite] <topic>"
+argument-hint: "[--intensity low|medium|high] <topic>"
 context: fork
 allowed-tools: Bash, Write
 ---
@@ -13,12 +13,7 @@ $ARGUMENTS
 Routing rules:
 
 - Parse `--intensity <low|medium|high>` from the user text. Default to `medium` if missing or invalid.
-- Parse `--model <flash|pro|flash-lite>` from the user text if present (overrides the intensity default).
-- Default model per intensity (if `--model` not given):
-  - `low` → `gemini-3.5-flash`
-  - `medium` → `gemini-3.5-flash`
-  - `high` → `gemini-3.5-pro`
-- Strip the routing flags from the user text. What remains IS the topic. Trim whitespace.
+- Strip the routing flag from the user text. What remains IS the topic. Trim whitespace.
 - Build a slug from the topic: lowercase, replace non-alphanumeric with `-`, collapse repeated `-`, trim to 60 chars.
 - Compute today's date in `YYYY-MM-DD` (ISO, local time).
 - Compute `WRITE_FILE` = `docs/agy/research/<YYYY-MM-DD>-<slug>.md` (relative to the current working directory).
@@ -33,12 +28,14 @@ Pass this header block to the subagent followed by the topic:
 ```
 MODE: research
 INTENSITY: <low|medium|high>
-MODEL: <resolved model>
+MODEL:
 RESUME: false
 WRITE_FILE: docs/agy/research/<date>-<slug>.md
 USER_TEXT:
 <topic>
 ```
+
+> **Note**: `agy` CLI 1.0.x does not accept a `--model` flag. Model selection is internal to the CLI. Intensity now controls the timeout and the prompt template only.
 
 Operating rules:
 

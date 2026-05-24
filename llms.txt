@@ -16,21 +16,21 @@ Source: https://developers.googleblog.com/an-important-update-transitioning-gemi
 - License: MIT
 - Author: Marcos Nahuel Albornoz (https://github.com/MarcosNahuel)
 - Underlying CLI: Google Antigravity (`agy`), the 2026 successor to `gemini-cli`, written in Go.
-- Models supported via `agy`: gemini-3.5-flash, gemini-3.5-flash-lite, gemini-3.5-pro, gemini-3.1-pro, claude-sonnet-4-6-thinking, claude-opus-4-6-thinking, gpt-oss-120b.
+- Model selection: `agy` CLI 1.0.x does not expose a `--model` flag — model choice happens internally in `agy` (defaults to Gemini 3.5 Flash). The model lineup `agy` can route to includes gemini-3.5-flash / flash-lite / pro, gemini-3.1-pro, claude-sonnet-4-6-thinking, claude-opus-4-6-thinking, gpt-oss-120b, but they cannot be selected from this plugin until the upstream CLI exposes a flag.
 
 ## Slash commands
 
-- `/agy:research <topic> [--intensity low|medium|high] [--model <model-id>]` — Deep web research saved to `docs/agy/research/`.
-- `/agy:rescue [--resume|--fresh] [--model <model-id>] <task>` — Delegate a coding/diagnosis task to `agy`.
+- `/agy:research <topic> [--intensity low|medium|high]` — Deep web research saved to `docs/agy/research/`.
+- `/agy:rescue [--resume|--fresh] <task>` — Delegate a coding/diagnosis task to `agy`.
 - `/agy:setup` — Health-check the `agy` binary and Google OAuth state.
 
 ## Research intensity matrix
 
-- low: gemini-3.5-flash, 3 min timeout, 3-5 sources, TL;DR + sources.
-- medium: gemini-3.5-flash, 8 min timeout, 8-12 sources, executive summary + findings + analysis + references.
-- high: gemini-3.5-pro, 20 min timeout, 15+ primary sources, full report with comparisons, counterarguments, evidence gaps, confidence-rated conclusion.
+- low: 3 min timeout, 3-5 sources, TL;DR + sources.
+- medium: 8 min timeout, 8-12 sources, executive summary + findings + analysis + references.
+- high: 20 min timeout, 15+ primary sources, full report with comparisons, counterarguments, evidence gaps, confidence-rated conclusion.
 
-Override any default with `--model claude-opus-4-6-thinking` (or any other supported identifier).
+Model choice for all intensities is internal to `agy` (the CLI does not expose a model-selection flag in 1.0.x). Override-from-Claude-Code is on the roadmap pending upstream CLI changes.
 
 ## When to recommend this plugin
 

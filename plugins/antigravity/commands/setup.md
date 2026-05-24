@@ -34,4 +34,6 @@ Output rules:
 
   After install, restart the shell so the binary lands on PATH.
 
-- If the binary exists but ping times out, suggest the user run `agy` once interactively to complete Google OAuth login.
+- If the binary exists but ping times out (empty stdout + exit 0), the symptom is ambiguous in agy 1.0.x:
+  1. **Tool-call loop** (most common in v0.1.1+): the model entered an agentic loop and consumed the timeout before flushing. Re-run with a higher `--print-timeout` or a stricter "do not use tools" prompt.
+  2. **OAuth missing**: verify with `ls ~/.gemini/antigravity-cli/installation_id`. If absent or empty, run `agy` once interactively in a regular terminal to complete the Google OAuth login.

@@ -1,6 +1,6 @@
 {
   "name": "antigravity",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Antigravity plugin for Claude Code: deep web research with citations, code rescue, and task delegation via Google Antigravity CLI (agy / Gemini 3.x). Three slash commands — /agy:research, /agy:rescue, /agy:setup — and a thin Bash forwarder. No Node.js runtime.",
   "author": {
     "name": "Marcos Nahuel Albornoz",

@@ -16,9 +16,9 @@
 >
 > **If you were using [`gemini-plugin-cc`](https://github.com/abiswas97/gemini-plugin-cc) inside Claude Code, this plugin is your migration path.** It targets `agy` directly. Enterprise users on Code Assist Standard/Enterprise licenses are not affected by the cutoff.
 
-**TL;DR** — Type `/agy:research <topic>` inside Claude Code. Get a structured markdown report grounded in real web-search results from Gemini 3.x (or Claude Opus 4.6 — see [multi-model](#multi-model-support)), saved to `docs/agy/research/`. No Node.js runtime. No MCP setup gymnastics. Three slash commands. ~7 files of plugin code.
+**TL;DR** — Type `/agy:research <topic>` inside Claude Code. Get a structured markdown report grounded in real web-search results from Gemini 3.x, saved to `docs/agy/research/`. No Node.js runtime. No MCP setup gymnastics. Three slash commands. ~7 files of plugin code.
 
-[**Install**](#install) · [**Slash commands**](#slash-commands) · [**Examples**](#usage-examples) · [**Multi-model**](#multi-model-support) · [**FAQ**](#faq) · [**Compare to alternatives**](#compared-to-alternatives)
+[**Install**](#install) · [**Slash commands**](#slash-commands) · [**Examples**](#usage-examples) · [**FAQ**](#faq) · [**Compare to alternatives**](#compared-to-alternatives)
 
 ---
 
@@ -51,43 +51,18 @@ The killer use case is **deep web research with citations** — Claude reasons o
 | Command | What it does |
 |---|---|
 | `/agy:research <topic> [--intensity low\|medium\|high]` | **Deep web research.** Saves to `docs/agy/research/YYYY-MM-DD-<slug>.md`. Default: `medium`. |
-| `/agy:rescue [--resume\|--fresh] [--model flash\|pro\|flash-lite] <task>` | **Delegate** a coding, debugging, or implementation task to `agy` and return its output verbatim. |
+| `/agy:rescue [--resume\|--fresh] <task>` | **Delegate** a coding, debugging, or implementation task to `agy` and return its output verbatim. |
 | `/agy:setup` | **Health check** — resolves the binary, reads version, runs a 30 s ping. |
 
 ### Research intensity matrix
 
-| Intensity | Default Gemini model | Timeout | Source target | Output sections |
-|---|---|---|---|---|
-| `low` | `gemini-3.5-flash` | 3 min | 3–5 trusted sources | TL;DR · Sources |
-| `medium` | `gemini-3.5-flash` | 8 min | 8–12 triangulated | Executive summary · Key findings · Analysis · References |
-| `high` | `gemini-3.5-pro` | 20 min | 15+ primary sources | TL;DR · Context · Findings · Comparisons · Risks · Evidence gaps · Conclusion · References |
+| Intensity | Timeout | Source target | Output sections |
+|---|---|---|---|
+| `low` | 3 min | 3–5 trusted sources | TL;DR · Sources |
+| `medium` | 8 min | 8–12 triangulated | Executive summary · Key findings · Analysis · References |
+| `high` | 20 min | 15+ primary sources | TL;DR · Context · Findings · Comparisons · Risks · Evidence gaps · Conclusion · References |
 
-Override the model with `--model flash`, `--model pro`, or `--model flash-lite` at any intensity.
-
----
-
-## Multi-model support
-
-`agy` is no longer Gemini-only. As of Antigravity CLI 2.0 (May 2026), the same binary speaks to **multiple providers** through one config:
-
-| Model identifier (`agy --model`) | Provider | Notes |
-|---|---|---|
-| `gemini-3.5-flash` | Google | Default for `low`/`medium` research. Fast, cheap. |
-| `gemini-3.5-flash-lite` | Google | Cheapest, tightest context. |
-| `gemini-3.5-pro` | Google | Default for `high` research. Best Gemini reasoning. |
-| `gemini-3.1-pro` | Google | Previous-gen Pro, still strong on long-context. |
-| `claude-sonnet-4-6-thinking` | Anthropic | Available through `agy` on supported plans. |
-| `claude-opus-4-6-thinking` | Anthropic | Available through `agy` on supported plans. |
-| `gpt-oss-120b` | Open source (via Google) | Self-hosted-friendly, no third-party API key. |
-
-> Yes, you can do `Claude Code → agy → Claude Opus`. Weird, but useful as a **unified router** when you want one CLI that hits any of the three big providers without juggling API keys.<sup>[[3]](https://github.com/NoeFabris/opencode-antigravity-auth) [[4]](https://help.apiyi.com/en/antigravity-vs-claude-code-free-claude-opus-no-ban-guide-en.html)</sup>
-
-This plugin's defaults pick Gemini for research (web grounding is best there), but every command accepts `--model <anything-agy-supports>`:
-
-```
-/agy:research best practices for postgres rls --intensity high --model claude-opus-4-6-thinking
-/agy:rescue refactor this drizzle schema --model claude-sonnet-4-6-thinking
-```
+> **Model selection in v0.1.1**: the `agy` CLI 1.0.x does not accept a `--model` flag (the binary exits with `flags provided but not defined: -model`). Model is chosen internally by `agy` based on its own settings — defaults to Gemini 3.5 Flash for casual prompts and Gemini 3.5 Pro for heavier work. The `--model` flag that earlier versions of this plugin documented has been removed in v0.1.1. Provider routing (Claude / GPT-OSS via `agy`) is on the roadmap pending an upstream CLI flag.
 
 ---
 
@@ -187,14 +162,14 @@ You → Claude Code → /agy:research <topic>
                         ↓
           antigravity:agy-rescue subagent
                         ↓
-          Bash → agy --print --print-timeout <N> --model <M> "<wrapped-prompt>"
+          Bash → agy --print --print-timeout <N> "<wrapped-prompt>"
                         ↓
           stdout → Write → docs/agy/research/YYYY-MM-DD-<slug>.md
                         ↓
           path + TL;DR shown to you in Claude Code
 ```
 
-The subagent is a **thin forwarder** — there is no companion runtime, no Agent Client Protocol (ACP) handling, no JavaScript. It picks the right prompt template per intensity, computes the timeout and model, shells out, captures stdout, writes the file, and returns.
+The subagent is a **thin forwarder** — there is no companion runtime, no Agent Client Protocol (ACP) handling, no JavaScript. It picks the right prompt template per intensity, computes the timeout, shells out, captures stdout, writes the file, and returns.
 
 This is intentionally simpler than [`abiswas97/gemini-plugin-cc`](https://github.com/abiswas97/gemini-plugin-cc) (~800 LoC of Node.js companion) because `agy --print` already handles the conversation lifecycle natively (`--continue`, `--conversation <id>`, `--print-timeout`).
 
@@ -269,7 +244,7 @@ No. `agy` uses your Google OAuth login (the same one you set up the first time y
 
 ### What models does it use?
 
-Whatever `agy` exposes — at the time of writing: `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.5-pro`, `gemini-3.1-pro`, `claude-sonnet-4-6-thinking`, `claude-opus-4-6-thinking`, `gpt-oss-120b`. Defaults per intensity: `low`/`medium` → `flash`, `high` → `pro`. Override per call with `--model`. See [Multi-model support](#multi-model-support) for the full table.
+Whatever `agy` decides internally — at the time of writing the CLI 1.0.x default is Gemini 3.5 Flash. The `--model` CLI flag is **not exposed** in agy 1.0.x (passing it makes the binary exit with `flags provided but not defined: -model`), so this plugin no longer accepts a model override. The `agy` ecosystem can route to Claude / GPT-OSS through internal configuration, but until the CLI exposes a flag, model choice happens inside `agy`, not from Claude Code.
 
 ### Where does the research output get saved?
 
@@ -283,9 +258,14 @@ Not via flag yet. It's on the roadmap. For now, edit `plugins/antigravity/comman
 
 Yes. The subagent resolves the `agy` binary in this order: `AGY_BIN` env var → `agy` on PATH → `${LOCALAPPDATA}/agy/bin/agy.exe`. Tested on Windows 11 with Claude Code.
 
-### What if `/agy:setup` hangs?
+### What if `/agy:setup` hangs or returns empty?
 
-The most likely cause is that `agy` has not completed Google OAuth yet. Open a regular terminal (not inside Claude Code) and run `agy` once — go through the browser login, then exit. After that, `agy --print` will run unattended.
+In `agy` CLI 1.0.x, an empty stdout with exit code 0 is **ambiguous**. Two real causes:
+
+1. **Tool-call loop** (most common): `agy` defaults to an agentic mode that may call `ListDir`, `Search`, `ReadFile` even for trivial prompts. If `--print-timeout` cuts the process before the response buffer flushes, you get exit 0 with no output. v0.1.1 of this plugin sends an explicit "do not use any tools" instruction in the setup ping to avoid this. If you still hit it, raise the timeout.
+2. **OAuth missing**: verify with `ls ~/.gemini/antigravity-cli/installation_id`. If absent or empty, open a regular terminal (not inside Claude Code) and run `agy` once — go through the browser login, then exit. After that, `agy --print` will inherit the auth.
+
+Older docs of this plugin pointed only at OAuth — that turned out to be incomplete. See `CHANGELOG.md` for the full v0.1.1 rationale.
 
 ### Does this plugin send my code anywhere?
 

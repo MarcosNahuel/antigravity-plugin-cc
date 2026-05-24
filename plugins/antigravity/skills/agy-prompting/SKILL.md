@@ -61,9 +61,10 @@ These are CALLER-SIDE controls, never include them in the agy prompt text:
 - `--print` — non-interactive
 - `--dangerously-skip-permissions` — auto-approve tool use
 - `--print-timeout 20m0s` — high-intensity research needs long timeouts
-- `--model gemini-3.5-pro` / `gemini-3.5-flash` / `gemini-3.5-flash-lite`
 - `--continue` — resume the most recent agy conversation
 - `--conversation <id>` — resume a specific past conversation
+
+> **Removed in v0.1.1**: `--model` is not a valid `agy` CLI flag in 1.0.x — passing it makes the binary exit with `flags provided but not defined: -model`. Model selection is internal to the CLI. If you need a specific model, change it via `agy` interactive settings, not via the prompt.
 
 ## When in doubt
 

@@ -24,7 +24,7 @@ Prefer using `agy` directly if PATH resolves it — that's the cross-platform de
 Use exactly ONE `Bash` call. The base command shape is:
 
 ```bash
-agy --print --dangerously-skip-permissions --print-timeout <TIMEOUT> [--model <MODEL>] [--continue] "<PROMPT>"
+agy --print --dangerously-skip-permissions --print-timeout <TIMEOUT> [--continue] "<PROMPT>"
 ```
 
 Notes:
@@ -32,6 +32,7 @@ Notes:
 - `--dangerously-skip-permissions` auto-approves all tool permission requests so agy can run unattended.
 - `--print-timeout` is required for long research tasks; default of `5m0s` is too short for `high` intensity.
 - Quote the prompt with double quotes and escape any internal `"` as `\"`.
+- **There is no `--model` flag in `agy` CLI 1.0.x.** Model selection is internal to the CLI. Do not pass `--model` — it makes the binary exit with `flags provided but not defined: -model`.
 
 ## Inputs you receive from the slash command
 
@@ -40,7 +41,7 @@ The slash command (`/agy:rescue`, `/agy:research`, or `/agy:setup`) passes you a
 ```
 MODE: rescue|research|setup
 INTENSITY: low|medium|high          # only for research
-MODEL: <model name or empty>        # optional override
+MODEL:                              # reserved for forward compat — agy 1.0.x ignores model overrides
 RESUME: true|false                  # add --continue if true
 WRITE_FILE: <path or empty>         # if non-empty, capture stdout to this file
 USER_TEXT:
@@ -53,7 +54,7 @@ USER_TEXT:
 
 - Build the prompt as the user's raw text (after the `agy-prompting` skill tightening if you choose to apply it — but keep edits minimal, no extra commentary).
 - Default timeout: `8m0s`.
-- Default model: leave unset (agy picks).
+- Do NOT pass `--model` — it is not supported by `agy` 1.0.x.
 - If `RESUME: true`, add `--continue`.
 - Capture stdout. Print it verbatim.
 
@@ -61,7 +62,7 @@ USER_TEXT:
 
 You MUST wrap the user's topic with the intensity template before invoking agy. Templates:
 
-#### LOW (default model: gemini-3.5-flash, timeout: 3m0s)
+#### LOW (timeout: 3m0s; agy CLI 1.0.x picks the model internally)
 
 ```
 Investigate the following topic quickly on the web: <TOPIC>.
@@ -85,7 +86,7 @@ Output format (markdown):
 2. ...
 ```
 
-#### MEDIUM (default model: gemini-3.5-flash, timeout: 8m0s)
+#### MEDIUM (timeout: 8m0s; agy CLI 1.0.x picks the model internally)
 
 ```
 Balanced web research on: <TOPIC>.
@@ -115,7 +116,7 @@ Connections, implications, tradeoffs. Keep concise (200-300 words max).
 2. ...
 ```
 
-#### HIGH (default model: gemini-3.5-pro, timeout: 20m0s)
+#### HIGH (timeout: 20m0s; agy CLI 1.0.x picks the model internally)
 
 ```
 Exhaustive web research on: <TOPIC>.
@@ -168,7 +169,6 @@ Actionable recommendation + confidence level (high/medium/low).
 title: "<TOPIC>"
 type: research
 intensity: <low|medium|high>
-model: <model used>
 created: <YYYY-MM-DD>
 sensitivity: internal
 source_tool: agy
@@ -182,8 +182,16 @@ source_tool: agy
 
 ### Mode: setup
 
-- Run a minimal ping: `agy --print --dangerously-skip-permissions --print-timeout 30s "ping — reply with only the word 'pong'"`.
-- Report: binary path, version (from `agy changelog | head -n 1` if available), and whether the ping returned anything in <30s.
+- Run a minimal ping. Phrase it so agy does NOT trigger agentic tool calls (ListDir, Search, ReadFile) that would consume the timeout before printing anything:
+
+  ```bash
+  agy --print --dangerously-skip-permissions --print-timeout 60s "Reply with the single word: pong. Do not use any tools. Do not search anything. Do not read any files. Output the literal text 'pong' and nothing else."
+  ```
+
+- Report: binary path, version (from `agy changelog | head -n 1` if available), and whether the ping returned `pong` within the timeout.
+- If stdout is empty and exit code is 0, **do not assume OAuth is missing**. agy 1.0.x's `--print` mode can return empty stdout when:
+  1. The model entered an agentic tool-call loop and the `--print-timeout` cut it off before the response buffer flushed.
+  2. Google OAuth is genuinely missing — verify with `ls ~/.gemini/antigravity-cli/installation_id` (file should exist and be non-empty).
 - Do NOT touch user PATH or environment variables. If the binary is missing, just say so and stop.
 
 ## Safety rules
