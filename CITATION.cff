@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use this plugin in your work, please cite it using the metadata below."
+title: "Antigravity Plugin for Claude Code"
+abstract: "A Claude Code plugin that wraps Google Antigravity CLI (agy) to add deep web research, code rescue, and task delegation as native slash commands."
+authors:
+  - given-names: "Marcos Nahuel"
+    family-names: "Albornoz"
+    email: "contact@traidai.com"
+    affiliation: "TRAID"
+    website: "https://github.com/MarcosNahuel"
+type: software
+license: MIT
+repository-code: "https://github.com/MarcosNahuel/antigravity-plugin-cc"
+url: "https://github.com/MarcosNahuel/antigravity-plugin-cc"
+version: "0.1.0"
+date-released: "2026-05-23"
+keywords:
+  - claude-code
+  - claude-code-plugin
+  - antigravity
+  - agy
+  - gemini
+  - gemini-3-5
+  - llm-tools
+  - ai-agents
+  - deep-research
+  - web-search
+  - agentic-engineering
+  - prompt-engineering
+  - anthropic

@@ -2,22 +2,40 @@
   "name": "marcosnahuel-antigravity",
   "owner": {
     "name": "Marcos Nahuel Albornoz",
-    "url": "https://github.com/MarcosNahuel"
+    "url": "https://github.com/MarcosNahuel",
+    "email": "contact@traidai.com"
   },
   "metadata": {
-    "description": "Use Google Antigravity CLI (agy) from Claude Code — deep web research at low/medium/high intensity, code rescue, and task delegation.",
-    "version": "0.1.0"
+    "description": "Antigravity plugin for Claude Code: deep web research with citations, code rescue, and task delegation via Google Antigravity CLI (agy / Gemini 3.x). The modern successor to gemini-plugin-cc — no Node.js runtime, just three slash commands and a thin Bash forwarder.",
+    "version": "0.1.0",
+    "homepage": "https://github.com/MarcosNahuel/antigravity-plugin-cc",
+    "keywords": [
+      "claude-code",
+      "claude-code-plugin",
+      "antigravity",
+      "agy",
+      "gemini",
+      "gemini-3-5",
+      "deep-research",
+      "web-search",
+      "ai-agents",
+      "llm-tools",
+      "agentic-engineering",
+      "anthropic"
+    ]
   },
   "plugins": [
     {
       "name": "antigravity",
-      "description": "Use Google Antigravity CLI (agy) from Claude Code to delegate tasks and run deep web research at low/medium/high intensity.",
+      "description": "Three slash commands wrapping Google Antigravity CLI (agy): /agy:research for deep web research at low/medium/high intensity with citations saved to docs/agy/research/, /agy:rescue for code/diagnosis task delegation, /agy:setup for health checks. Thin Bash forwarder, no runtime dependencies.",
       "version": "0.1.0",
       "author": {
         "name": "Marcos Nahuel Albornoz",
         "url": "https://github.com/MarcosNahuel"
       },
-      "source": "./plugins/antigravity"
+      "source": "./plugins/antigravity",
+      "homepage": "https://github.com/MarcosNahuel/antigravity-plugin-cc",
+      "license": "MIT"
     }
   ]
 }
