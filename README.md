@@ -1,15 +1,24 @@
 # Antigravity Plugin for Claude Code
 
-> **Deep web research, code rescue, and task delegation from Claude Code to Google Antigravity (`agy`) — the CLI that replaced `gemini-cli` in 2026.**
+> **Deep web research, code rescue, and task delegation from Claude Code to Google Antigravity (`agy`) — the official CLI that replaces the now-deprecated `gemini-cli`.**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-7c3aed)](https://docs.claude.com/en/docs/claude-code/plugins)
 [![Antigravity CLI](https://img.shields.io/badge/Google-Antigravity%20CLI-4285F4)](https://antigravity.google)
 [![Made with agy](https://img.shields.io/badge/Made%20with-agy-34a853)](https://github.com/MarcosNahuel/antigravity-plugin-cc)
+[![Gemini CLI Deprecation: 18 Jun 2026](https://img.shields.io/badge/Gemini%20CLI-deprecated%2018%20Jun%202026-red)](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/)
 
-**TL;DR** — Type `/agy:research <topic>` inside Claude Code. Get a structured markdown report grounded in real web search results from Gemini 3.x, saved to `docs/agy/research/`. No Node.js runtime. No MCP setup gymnastics. Three slash commands. ~7 files of plugin code.
+> ### ⚠️ Heads-up: `gemini-cli` shuts down on **June 18, 2026**
+>
+> On **May 19, 2026** Google announced at I/O that Antigravity CLI (`agy`) replaces Gemini CLI. After **June 18, 2026** the old `gemini-cli` and Gemini Code Assist IDE extensions **stop serving requests** for AI Pro, Ultra, and free-tier users.<sup>[[1]](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/) [[2]](https://www.theregister.com/ai-ml/2026/05/20/bye-bye-gemini-cli-google-nudges-devs-toward-antigravity/5243605)</sup>
+>
+> Google's stated reasoning: *"Your workflows have simply outgrown those early days of 2025. You now require multiple agents communicating with each other to split up the work and solve complex problems."* — [Google Developers Blog](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/)
+>
+> **If you were using [`gemini-plugin-cc`](https://github.com/abiswas97/gemini-plugin-cc) inside Claude Code, this plugin is your migration path.** It targets `agy` directly. Enterprise users on Code Assist Standard/Enterprise licenses are not affected by the cutoff.
 
-[**Install**](#install) · [**Slash commands**](#slash-commands) · [**Examples**](#usage-examples) · [**FAQ**](#faq) · [**Compare to alternatives**](#compared-to-alternatives)
+**TL;DR** — Type `/agy:research <topic>` inside Claude Code. Get a structured markdown report grounded in real web-search results from Gemini 3.x (or Claude Opus 4.6 — see [multi-model](#multi-model-support)), saved to `docs/agy/research/`. No Node.js runtime. No MCP setup gymnastics. Three slash commands. ~7 files of plugin code.
+
+[**Install**](#install) · [**Slash commands**](#slash-commands) · [**Examples**](#usage-examples) · [**Multi-model**](#multi-model-support) · [**FAQ**](#faq) · [**Compare to alternatives**](#compared-to-alternatives)
 
 ---
 
@@ -17,7 +26,7 @@
 
 **A Claude Code plugin that lets you delegate work to Google Antigravity CLI (`agy`) without leaving Claude Code.**
 
-- **Antigravity CLI** (`agy`) is Google's official agentic command-line assistant — the successor to `gemini-cli`, rewritten in Go for speed, with native web search grounding built into Gemini 3.x.
+- **Antigravity CLI** (`agy`) is Google's official agentic command-line assistant — released at Google I/O 2026 as the successor to `gemini-cli`. Rewritten in Go for speed, with native web-search grounding built into Gemini 3.x and **multi-provider model support** (Gemini, Claude, GPT-OSS).
 - **Claude Code** is Anthropic's CLI for AI-assisted software engineering.
 - This plugin **bridges the two**: from inside Claude Code, you invoke `/agy:research`, `/agy:rescue`, or `/agy:setup` and the request gets handed to `agy --print` via a thin Bash forwarder.
 
@@ -54,6 +63,31 @@ The killer use case is **deep web research with citations** — Claude reasons o
 | `high` | `gemini-3.5-pro` | 20 min | 15+ primary sources | TL;DR · Context · Findings · Comparisons · Risks · Evidence gaps · Conclusion · References |
 
 Override the model with `--model flash`, `--model pro`, or `--model flash-lite` at any intensity.
+
+---
+
+## Multi-model support
+
+`agy` is no longer Gemini-only. As of Antigravity CLI 2.0 (May 2026), the same binary speaks to **multiple providers** through one config:
+
+| Model identifier (`agy --model`) | Provider | Notes |
+|---|---|---|
+| `gemini-3.5-flash` | Google | Default for `low`/`medium` research. Fast, cheap. |
+| `gemini-3.5-flash-lite` | Google | Cheapest, tightest context. |
+| `gemini-3.5-pro` | Google | Default for `high` research. Best Gemini reasoning. |
+| `gemini-3.1-pro` | Google | Previous-gen Pro, still strong on long-context. |
+| `claude-sonnet-4-6-thinking` | Anthropic | Available through `agy` on supported plans. |
+| `claude-opus-4-6-thinking` | Anthropic | Available through `agy` on supported plans. |
+| `gpt-oss-120b` | Open source (via Google) | Self-hosted-friendly, no third-party API key. |
+
+> Yes, you can do `Claude Code → agy → Claude Opus`. Weird, but useful as a **unified router** when you want one CLI that hits any of the three big providers without juggling API keys.<sup>[[3]](https://github.com/NoeFabris/opencode-antigravity-auth) [[4]](https://help.apiyi.com/en/antigravity-vs-claude-code-free-claude-opus-no-ban-guide-en.html)</sup>
+
+This plugin's defaults pick Gemini for research (web grounding is best there), but every command accepts `--model <anything-agy-supports>`:
+
+```
+/agy:research best practices for postgres rls --intensity high --model claude-opus-4-6-thinking
+/agy:rescue refactor this drizzle schema --model claude-sonnet-4-6-thinking
+```
 
 ---
 
@@ -197,20 +231,33 @@ This is intentionally simpler than [`abiswas97/gemini-plugin-cc`](https://github
 
 | | This plugin | [`gemini-plugin-cc`](https://github.com/abiswas97/gemini-plugin-cc) | Claude's built-in `WebSearch` tool | Perplexity API |
 |---|---|---|---|---|
-| **CLI it wraps** | Antigravity (`agy`) — current | Gemini CLI — deprecated | None (native to Claude) | None (REST API) |
+| **CLI it wraps** | Antigravity (`agy`) — **official current CLI** | Gemini CLI — **shuts down 18 Jun 2026** ⚠️ | None (native to Claude) | None (REST API) |
 | **Runtime overhead** | None — direct Bash to `agy` | ~800 LoC Node.js companion | None | HTTP calls |
-| **Web search engine** | Gemini 3.x with native grounding | Gemini 2.x via Gemini CLI | Brave (via Anthropic) | Perplexity Sonar |
+| **Web search engine** | Gemini 3.x grounding (or Claude/GPT-OSS via `agy`) | Gemini 2.x via Gemini CLI | Brave (via Anthropic) | Perplexity Sonar |
 | **Saves output to file** | ✅ `docs/agy/research/` by default | ❌ | ❌ | ❌ |
 | **Intensity tiers** | ✅ low/medium/high | ❌ | ❌ | Some via model choice |
 | **Code rescue / file edits** | ✅ via `/agy:rescue` | ✅ via `/gemini:rescue` | ❌ | ❌ |
 | **Code review commands** | Not yet (roadmap) | ✅ `/gemini:review`, `/gemini:adversarial-review` | ❌ | ❌ |
-| **Free tier** | Via Google's `agy` free quota | Via Gemini API free quota | Included in Claude Code | Paid |
+| **Multi-provider models** | ✅ Gemini + Claude + GPT-OSS via `agy` | Gemini only | Claude only | Perplexity only |
+| **Free tier** | Via Google's `agy` free quota | Via Gemini API free quota (ending Jun 2026) | Included in Claude Code | Paid |
 
-**Rule of thumb:** Use Claude's `WebSearch` for quick lookups inside a Claude session. Use this plugin when you want **a saved, structured markdown report with citations** that lives in your repo and that you can iterate on.
+**Rule of thumb:** Use Claude's `WebSearch` for quick lookups inside a Claude session. Use this plugin when you want **a saved, structured markdown report with citations** that lives in your repo and that you can iterate on. If you were on `gemini-plugin-cc`, plan your migration before 18 Jun 2026.
 
 ---
 
 ## FAQ
+
+### When is Gemini CLI being deprecated, and what should I do?
+
+**June 18, 2026.** That's the date `gemini-cli` and Gemini Code Assist IDE extensions stop serving requests for Google AI Pro, Ultra, and free-tier users.<sup>[[1]](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/)</sup> Install `agy` now (`irm https://antigravity.google/cli/install.ps1 | iex` on Windows, `curl -fsSL https://antigravity.google/cli/install.sh | bash` on macOS/Linux), and replace `/gemini:*` calls with `/agy:*`. Enterprise users on Code Assist Standard or Enterprise licenses are exempt and retain access.
+
+### Can I still use the older `gemini-plugin-cc`?
+
+Until 18 Jun 2026, yes. After that, the underlying `gemini-cli` will stop authenticating requests for non-enterprise users, so the plugin's slash commands will start failing. This repo is the natural migration target — same UX (slash commands forwarding to a Google CLI), updated to the supported binary.
+
+### Why "Antigravity" — what's the name about?
+
+Antigravity is Google's umbrella for its agent-first development stack: the Antigravity 2.0 desktop IDE, the Managed Agents in the Gemini API, and the Antigravity CLI (`agy`). The CLI shares the same agent harness as the desktop app, so future improvements ship to both at once.<sup>[[5]](https://blog.google/innovation-and-ai/technology/developers-tools/google-io-2026-developer-highlights/)</sup>
 
 ### How is this different from just running `agy` in a separate terminal?
 
@@ -222,7 +269,7 @@ No. `agy` uses your Google OAuth login (the same one you set up the first time y
 
 ### What models does it use?
 
-Whatever `agy` exposes — at the time of writing, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, and `gemini-3.5-pro`. Defaults per intensity: `low`/`medium` → `flash`, `high` → `pro`. Override per call with `--model`.
+Whatever `agy` exposes — at the time of writing: `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.5-pro`, `gemini-3.1-pro`, `claude-sonnet-4-6-thinking`, `claude-opus-4-6-thinking`, `gpt-oss-120b`. Defaults per intensity: `low`/`medium` → `flash`, `high` → `pro`. Override per call with `--model`. See [Multi-model support](#multi-model-support) for the full table.
 
 ### Where does the research output get saved?
 
@@ -326,4 +373,14 @@ If this plugin saves you time, a ⭐ on the repo is the best way to say thanks. 
 
 ---
 
-<sub>Keywords: claude code plugin, antigravity cli, agy cli, gemini 3.5, deep web research, llm research tool, agentic engineering, prompt engineering, claude code subagent, gemini grounding, claude code marketplace, research with citations, llm tool delegation, claude code anthropic.</sub>
+## References
+
+1. **Google Developers Blog (19 May 2026)** — [*"An important update: Transitioning Gemini CLI to Antigravity CLI"*](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/). Official announcement of the 18 Jun 2026 cutoff.
+2. **The Register (20 May 2026)** — [*"Bye-bye, Gemini CLI; Google nudges devs toward Antigravity"*](https://www.theregister.com/ai-ml/2026/05/20/bye-bye-gemini-cli-google-nudges-devs-toward-antigravity/5243605). Independent coverage of the deprecation.
+3. **NoeFabris / opencode-antigravity-auth** — [GitHub](https://github.com/NoeFabris/opencode-antigravity-auth). Reference for `agy` multi-provider auth covering Gemini Pro and Claude Opus.
+4. **APIYI Blog** — [*"Antigravity vs Claude Code: 5 Key Differences for Using Claude Opus 4.6 Without Account Bans"*](https://help.apiyi.com/en/antigravity-vs-claude-code-free-claude-opus-no-ban-guide-en.html). Confirms multi-model routing through `agy`.
+5. **Google Blog (19 May 2026)** — [*"I/O 2026 developer highlights: Antigravity, Gemini API, AI Studio"*](https://blog.google/innovation-and-ai/technology/developers-tools/google-io-2026-developer-highlights/). I/O 2026 launch context for Antigravity 2.0 + Gemini 3.5.
+
+---
+
+<sub>Keywords: claude code plugin, antigravity cli, agy cli, gemini 3.5, gemini cli deprecated, gemini cli replacement, gemini cli migration, june 18 2026, antigravity migration, deep web research, llm research tool, agentic engineering, prompt engineering, claude code subagent, gemini grounding, claude code marketplace, research with citations, llm tool delegation, claude opus from agy, multi-model cli, claude code anthropic.</sub>
