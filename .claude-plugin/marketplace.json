@@ -1,0 +1,23 @@
+{
+  "name": "marcosnahuel-antigravity",
+  "owner": {
+    "name": "Marcos Nahuel Albornoz",
+    "url": "https://github.com/MarcosNahuel"
+  },
+  "metadata": {
+    "description": "Use Google Antigravity CLI (agy) from Claude Code — deep web research at low/medium/high intensity, code rescue, and task delegation.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "antigravity",
+      "description": "Use Google Antigravity CLI (agy) from Claude Code to delegate tasks and run deep web research at low/medium/high intensity.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Marcos Nahuel Albornoz",
+        "url": "https://github.com/MarcosNahuel"
+      },
+      "source": "./plugins/antigravity"
+    }
+  ]
+}

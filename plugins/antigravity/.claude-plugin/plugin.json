@@ -1,0 +1,11 @@
+{
+  "name": "antigravity",
+  "version": "0.1.0",
+  "description": "Use Google Antigravity CLI (agy) from Claude Code to delegate tasks and run deep web research at low/medium/high intensity.",
+  "author": {
+    "name": "Marcos Nahuel Albornoz",
+    "url": "https://github.com/MarcosNahuel"
+  },
+  "homepage": "https://github.com/MarcosNahuel/antigravity-plugin-cc",
+  "license": "MIT"
+}
