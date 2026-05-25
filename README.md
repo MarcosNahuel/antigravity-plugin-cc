@@ -16,7 +16,7 @@
 >
 > **If you were using [`gemini-plugin-cc`](https://github.com/abiswas97/gemini-plugin-cc) inside Claude Code, this plugin is your migration path.** It targets `agy` directly. Enterprise users on Code Assist Standard/Enterprise licenses are not affected by the cutoff.
 
-**TL;DR** — Type `/agy:research <topic>` inside Claude Code to get a structured markdown report grounded in real web-search results from Gemini 3.x. Type `/agy:record <url>` to record a browser walkthrough as a `.webm` (+ optional MP4 via ffmpeg). No Node.js runtime. No MCP setup gymnastics. Four slash commands. ~8 files of plugin code.
+**TL;DR** — Type `/agy:research <topic>` inside Claude Code to get a structured markdown report grounded in real web-search results from Gemini 3.x. Type `/agy:record <url>` to record a browser walkthrough as a `.webm` (+ optional MP4 via ffmpeg). Type `/agy:scrape <url>` to extract structured data. Type `/agy:doc-to-md <pdf>` to convert documents to clean Markdown. Type `/agy:design-review <url>` to audit a page's UX/visual design across 10 dimensions with mobile + desktop screenshots. No Node.js runtime. No MCP setup gymnastics. Seven slash commands. ~11 files of plugin code.
 
 [**Install**](#install) · [**Slash commands**](#slash-commands) · [**Examples**](#usage-examples) · [**FAQ**](#faq) · [**Compare to alternatives**](#compared-to-alternatives)
 
@@ -28,7 +28,7 @@
 
 - **Antigravity CLI** (`agy`) is Google's official agentic command-line assistant — released at Google I/O 2026 as the successor to `gemini-cli`. Rewritten in Go for speed, with native web-search grounding built into Gemini 3.x and **multi-provider model support** (Gemini, Claude, GPT-OSS).
 - **Claude Code** is Anthropic's CLI for AI-assisted software engineering.
-- This plugin **bridges the two**: from inside Claude Code, you invoke `/agy:research`, `/agy:rescue`, `/agy:record`, or `/agy:setup` and the request gets handed to `agy --print` via a thin Bash forwarder.
+- This plugin **bridges the two**: from inside Claude Code, you invoke `/agy:research`, `/agy:rescue`, `/agy:record`, `/agy:scrape`, `/agy:doc-to-md`, `/agy:design-review`, or `/agy:setup` and the request gets handed to `agy --print` via a thin Bash forwarder.
 
 The killer use case is **deep web research with citations** — Claude reasons over your repo, `agy` reasons over the live web. Each tool does what it's best at.
 
@@ -53,6 +53,9 @@ The killer use case is **deep web research with citations** — Claude reasons o
 | `/agy:research <topic> [--intensity low\|medium\|high]` | **Deep web research.** Saves to `docs/agy/research/YYYY-MM-DD-<slug>.md`. Default: `medium`. |
 | `/agy:rescue [--resume\|--fresh] <task>` | **Delegate** a coding, debugging, or implementation task to `agy` and return its output verbatim. |
 | `/agy:record <url> [steps in natural language]` | **Browser walkthrough recording.** Drives an isolated Chrome via agy's browser subagent, produces `.webm` + screenshots + report, optional MP4 conversion if ffmpeg is on PATH. Saves to `docs/agy/recordings/`. No audio. |
+| `/agy:scrape <url> [schema] [--json]` | **Structured data extraction** from a single URL. Output as markdown table (default) or JSON. Saves to `docs/agy/scrapes/`. For one-off extractions, not production pipelines. |
+| `/agy:doc-to-md <file> [focus]` | **PDF / docx / image → clean Markdown** via multimodal Gemini. Preserves tables, lists, headings. Saves to `docs/agy/converted/`. Ideal for ingesting RFPs and client specs. |
+| `/agy:design-review <url> [focus]` | **UX/visual design audit** — desktop + mobile screenshots, 10-dimension scoring (hierarchy, typography, color, a11y, etc.), top 3 strengths, top 3 improvements, overall /10 score. Saves to `docs/agy/design-reviews/`. |
 | `/agy:setup` | **Health check** — resolves the binary, reads version, runs a 30 s ping. |
 
 ### Research intensity matrix
@@ -189,9 +192,12 @@ This is intentionally simpler than [`abiswas97/gemini-plugin-cc`](https://github
 │       ├── agents/
 │       │   └── agy-rescue.md       # thin forwarder subagent
 │       ├── commands/
+│       │   ├── design-review.md    # /agy:design-review
+│       │   ├── doc-to-md.md        # /agy:doc-to-md
 │       │   ├── record.md           # /agy:record
 │       │   ├── rescue.md           # /agy:rescue
 │       │   ├── research.md         # /agy:research
+│       │   ├── scrape.md           # /agy:scrape
 │       │   └── setup.md            # /agy:setup
 │       └── skills/
 │           └── agy-prompting/

@@ -4,6 +4,35 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-05-25
+
+Feature release: three new slash commands that exercise agy's lesser-known agentic capabilities — structured web scraping, multimodal document conversion, and visual/UX design review.
+
+### Added
+
+- **`/agy:scrape <url> [schema|description] [--json]`** — structured data extraction from a single URL. Pass the URL + optional comma-separated field names (e.g., `price, title, stock`) OR natural-language description (e.g., `extract product info`). Output to `docs/agy/scrapes/YYYY-MM-DD-<slug>.{md,json}`. Uses agy's `read_url` for static HTML and the browser subagent for JS-heavy SPAs. Saves time over hand-writing a scraper for one-off extractions; not a replacement for production scraping pipelines (use Playwright + n8n for that).
+- **`/agy:doc-to-md <file> [focus instructions]`** — multimodal document → clean Markdown conversion. Accepts PDF, docx, image (PNG/JPG/WebP), and HTML. Preserves tables, lists, headings, code blocks. Inline images become described placeholders. Output to `docs/agy/converted/YYYY-MM-DD-<slug>.md`. Especially useful for ingesting RFPs, specs, or proposal PDFs that arrive from clients.
+- **`/agy:design-review <url> [focus]`** — UX/visual audit of a URL. Captures desktop (1440×900) + mobile (375×667) screenshots and scores the page across 10 dimensions (hierarchy, typography, color, spacing, interactivity, brand, a11y, Nielsen heuristics, responsive behavior, competitive context). Ends with 3 strengths, 3 highest-leverage improvements, and an overall /10 score. Output to `docs/agy/design-reviews/YYYY-MM-DD-<slug>.md`. Validated on TRAID ERP login during development — output quality is on par with junior UX reviewer output.
+
+### Changed
+
+- **`agy-rescue` subagent gained three new mode branches** (`scrape`, `doc-to-md`, `design-review`) following the same write-to-file pattern as v0.2.0's `record` and `research` modes. The subagent description was updated to mention the new modes.
+- **Timeouts tuned per mode:**
+  - `scrape`: 5m (static) — 10m (JS-heavy SPA)
+  - `doc-to-md`: 8m (small) — 15m (large >20 pages)
+  - `design-review`: 12m (multi-viewport + multimodal analysis)
+- **Marketplace and plugin descriptions** updated to list seven commands instead of four.
+- **Keywords** expanded with `web-scraping`, `structured-extraction`, `pdf-to-markdown`, `docx-to-markdown`, `multimodal-conversion`, `design-review`, `ux-audit`, `visual-audit` for discoverability.
+
+### Notes
+
+- All three new commands use the same `--add-dir <CWD>` + `write_file` pattern from v0.2.0 to bypass upstream issue #76 (empty stdout in `--print` mode). No new workarounds needed.
+- `/agy:scrape` is for ad-hoc extractions and exploration. For production scraping pipelines, use a deterministic stack (Playwright + n8n + Postgres).
+- `/agy:doc-to-md` sends document contents to Google's Gemini servers. For data-residency-sensitive content (NDAs, internal contracts), prefer a Vertex AI ADC pipeline instead.
+- `/agy:design-review` uses an isolated Chrome profile — no shared cookies. Login-protected pages must include credentials in the focus text (those credentials end up in the prompt/transcript).
+
+[0.3.0]: https://github.com/MarcosNahuel/antigravity-plugin-cc/releases/tag/v0.3.0
+
 ## [0.2.0] — 2026-05-25
 
 Feature release: browser walkthrough recording + critical flag-order fix.

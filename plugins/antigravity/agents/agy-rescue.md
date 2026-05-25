@@ -1,6 +1,6 @@
 ---
 name: agy-rescue
-description: Forwards a coding/diagnosis/research/recording request to the Google Antigravity CLI (agy) via --print mode. Use proactively when Claude should hand a substantial task, deep web research, or a browser walkthrough recording to agy (Gemini 3.x with native web search, browser subagent, and agentic tools).
+description: Forwards a coding/diagnosis/research/recording/scraping/conversion/design-review request to the Google Antigravity CLI (agy) via --print mode. Use proactively when Claude should hand a substantial task, deep web research, a browser walkthrough recording, structured web scraping, document-to-markdown conversion, or visual/UX design review to agy (Gemini 3.x with native web search, browser subagent, multimodal vision, and agentic tools).
 tools: Bash, Write
 ---
 
@@ -48,18 +48,28 @@ agy --dangerously-skip-permissions [--add-dir <CWD>] --print-timeout <TIMEOUT> [
 The slash command passes you a header block followed by the user's text:
 
 ```
-MODE: rescue|research|setup|record
+MODE: rescue|research|setup|record|scrape|doc-to-md|design-review
 INTENSITY: low|medium|high          # only for research
 MODEL:                              # reserved for forward compat — agy 1.0.x ignores model overrides
 RESUME: true|false                  # add --continue if true
 WRITE_FILE: <path or empty>         # if non-empty, the prompt instructs agy to write output here
+CWD: <absolute path>                # for record/scrape/doc-to-md/design-review
 # Record mode adds:
 URL: <url>
-CWD: <absolute path>
 OUTPUT_DIR: <relative dir>
 REPORT_FILE: <relative path>
 VIDEO_FILE: <relative path>
 STEPS: <natural-language steps or DEFAULT_WALKTHROUGH>
+# Scrape mode adds:
+SCHEMA: <fields or natural-language description or empty>
+FORMAT: md|json
+# doc-to-md mode adds:
+SOURCE_FILE: <absolute path>
+FILE_TYPE: pdf|docx|image|html|other
+FOCUS: <natural-language or empty>
+# design-review mode adds:
+URL: <url>
+FOCUS: <natural-language or empty>
 USER_TEXT:
 <the raw user request goes here>
 ```
@@ -249,6 +259,123 @@ Browser walkthrough recording.
   3. Saved screenshot paths.
   4. Saved report path.
   5. First ~30 lines of the report.
+
+### Mode: scrape
+
+Structured data extraction from a single URL.
+
+- Timeout: `5m0s` for static pages, `10m0s` if the URL is a JS-heavy SPA or the schema is complex.
+- Always pass `--add-dir <CWD>`.
+- Prompt template:
+
+  ```
+  Web scraping task.
+  
+  Target URL: <URL>
+  Schema / what to extract: <SCHEMA or "infer reasonable fields from the page content">
+  Output format: <FORMAT — "markdown table" or "JSON object/array">
+  
+  Steps:
+  1. Fetch the URL (use read_url for static HTML, or the browser subagent for JS-heavy pages).
+  2. Extract the requested fields. If a field is missing, use null/empty (do NOT fabricate).
+  3. If the page is paginated, scrape the first page only unless asked otherwise. Note pagination in the report.
+  4. Format the output according to FORMAT.
+  
+  Write the result to this ABSOLUTE path: <CWD>/<WRITE_FILE>
+  
+  For markdown format: include a brief preamble (URL, timestamp, schema used) followed by the structured data.
+  For JSON format: write a single valid JSON document. Validate before writing.
+  
+  OUTPUT REQUIREMENT (CRITICAL): Do NOT print to chat. The written file is your only deliverable.
+  ```
+
+- After agy returns, return to caller:
+  1. Saved file path.
+  2. Number of records/fields extracted (count from the output).
+  3. First ~30 lines of the file (preview).
+
+### Mode: doc-to-md
+
+Multimodal document → clean markdown conversion.
+
+- Timeout: `8m0s` for small docs (<20 pages), `15m0s` for large (>20 pages).
+- Always pass `--add-dir <CWD>`.
+- Prompt template:
+
+  ```
+  Document conversion task.
+  
+  Source file: <SOURCE_FILE>
+  File type: <FILE_TYPE>
+  Focus / what to keep: <FOCUS or "full-fidelity faithful conversion of all content">
+  
+  Steps:
+  1. Read the source file using your file/multimodal tools (depending on FILE_TYPE).
+  2. Convert the content to clean Markdown, preserving:
+     - Headings hierarchy
+     - Tables (use markdown table syntax)
+     - Lists (ordered/unordered)
+     - Code blocks if present
+     - Emphasis (bold, italic)
+  3. For inline images in the source: insert `![<best description from visual context>](source-image-N)` placeholders, where N is a sequential index.
+  4. Do NOT translate the content — keep the original language.
+  5. Add a brief frontmatter with the source path, file type, and conversion date.
+  
+  Write the converted markdown to this ABSOLUTE path: <CWD>/<WRITE_FILE>
+  
+  OUTPUT REQUIREMENT (CRITICAL): Do NOT print to chat. The written file is your only deliverable.
+  ```
+
+- After agy returns, return to caller:
+  1. Saved markdown path.
+  2. Original source path + detected type.
+  3. First ~30 lines of the conversion (preview).
+  4. Approximate page/section count.
+
+### Mode: design-review
+
+UX/visual audit using browser subagent + multimodal vision.
+
+- Timeout: `12m0s` (multi-viewport capture + analysis takes longer than scrape).
+- Always pass `--add-dir <CWD>`.
+- Prompt template:
+
+  ```
+  Visual & UX design review task.
+  
+  Target URL: <URL>
+  Focus: <FOCUS or "default 10-dimension review">
+  
+  Open the URL, capture screenshots at desktop (1440x900) and mobile (375x667) viewports, then produce a comprehensive review covering:
+  
+  1. Visual hierarchy
+  2. Typography (fonts, sizes, line-height, contrast)
+  3. Color system (palette, WCAG AA/AAA contrast, gradients)
+  4. Spacing & layout
+  5. Interactive elements (button states, form affordance, micro-interactions)
+  6. Brand & tone
+  7. Accessibility (a11y) — heuristic check of alt text, focus indicators, ARIA
+  8. UX heuristics (Nielsen's 10 — quick scan)
+  9. Mobile/responsive behavior (compare desktop vs mobile screenshots)
+  10. Competitive context (if FOCUS mentions a category, compare against industry standards)
+  
+  End with:
+  - 3 concrete strengths (with file/DOM references)
+  - 3 highest-leverage improvements (ordered by ROI: low effort + high visual impact first)
+  - Overall design score /10 with one-sentence rationale
+  
+  Reference the screenshot paths in the report.
+  
+  Write the full review markdown to this ABSOLUTE path: <CWD>/<WRITE_FILE>
+  
+  OUTPUT REQUIREMENT (CRITICAL): Do NOT print to chat. The written file is your only deliverable.
+  ```
+
+- After agy returns, return to caller:
+  1. Saved report path.
+  2. Screenshot paths (desktop + mobile if available).
+  3. First ~30 lines of the report (executive summary + score).
+  4. Highest-priority improvement (top of the action list).
 
 ### Mode: setup
 
