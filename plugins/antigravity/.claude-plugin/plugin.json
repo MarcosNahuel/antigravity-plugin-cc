@@ -1,7 +1,7 @@
 {
   "name": "antigravity",
-  "version": "0.1.1",
-  "description": "Antigravity plugin for Claude Code: deep web research with citations, code rescue, and task delegation via Google Antigravity CLI (agy / Gemini 3.x). Three slash commands — /agy:research, /agy:rescue, /agy:setup — and a thin Bash forwarder. No Node.js runtime.",
+  "version": "0.2.0",
+  "description": "Antigravity plugin for Claude Code: deep web research with citations, code rescue, task delegation, and browser walkthrough recording via Google Antigravity CLI (agy / Gemini 3.x). Four slash commands — /agy:research, /agy:rescue, /agy:record, /agy:setup — and a thin Bash forwarder. No Node.js runtime.",
   "author": {
     "name": "Marcos Nahuel Albornoz",
     "email": "contact@traidai.com",
@@ -28,6 +28,9 @@
     "agentic-engineering",
     "anthropic",
     "subagent",
-    "task-delegation"
+    "task-delegation",
+    "browser-recording",
+    "screencast",
+    "demo-video"
   ]
 }
