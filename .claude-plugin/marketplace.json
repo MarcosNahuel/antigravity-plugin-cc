@@ -28,7 +28,7 @@
     {
       "name": "antigravity",
       "description": "Seven slash commands wrapping Google Antigravity CLI (agy): /agy:research (deep web research with citations, docs/agy/research/), /agy:rescue (code/diagnosis task delegation), /agy:record (browser walkthrough recording — .webm + optional MP4 via ffmpeg, docs/agy/recordings/), /agy:scrape (structured data extraction from URL — markdown or JSON, docs/agy/scrapes/), /agy:doc-to-md (PDF/docx/image to clean Markdown via multimodal Gemini, docs/agy/converted/), /agy:design-review (UX/visual audit with desktop+mobile screenshots and 10-dimension scoring, docs/agy/design-reviews/), /agy:setup (health check). Thin Bash forwarder, no runtime dependencies.",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "author": {
         "name": "Marcos Nahuel Albornoz",
         "url": "https://github.com/MarcosNahuel"

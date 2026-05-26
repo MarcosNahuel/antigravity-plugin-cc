@@ -1,6 +1,6 @@
 {
   "name": "antigravity",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Antigravity plugin for Claude Code: deep web research with citations, code rescue, task delegation, browser walkthrough recording, structured web scraping, document-to-markdown conversion, and visual/UX design review via Google Antigravity CLI (agy / Gemini 3.x). Seven slash commands — /agy:research, /agy:rescue, /agy:record, /agy:scrape, /agy:doc-to-md, /agy:design-review, /agy:setup — and a thin Bash forwarder. No Node.js runtime.",
   "author": {
     "name": "Marcos Nahuel Albornoz",
@@ -8,10 +8,7 @@
     "url": "https://github.com/MarcosNahuel"
   },
   "homepage": "https://github.com/MarcosNahuel/antigravity-plugin-cc",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/MarcosNahuel/antigravity-plugin-cc"
-  },
+  "repository": "https://github.com/MarcosNahuel/antigravity-plugin-cc",
   "license": "MIT",
   "keywords": [
     "claude-code",

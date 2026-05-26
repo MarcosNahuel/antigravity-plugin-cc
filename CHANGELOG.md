@@ -4,6 +4,21 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] — 2026-05-25
+
+Hotfix release: plugin manifest schema fix.
+
+### Fixed
+
+- **`repository` field in `plugin.json` was an OBJECT, but Claude Code's plugin manifest schema requires it to be a STRING.** This caused Claude Code's plugin loader to reject the plugin with `Validation errors: repository: Invalid input: expected string, received object` and silently skip loading all seven slash commands, even though `/plugin install` appeared to succeed and the file structure was correct. The plugin had this bug from v0.1.0 onwards — present in every previous release — but only surfaced when a fresh Claude Code install attempted strict schema validation. Symptoms before the fix: `/plugin marketplace add` + `/plugin install` complete without errors, but `/antigravity:` never autocompletes any command.
+
+### Notes
+
+- The npm `package.json` convention is `repository: { type, url }`. The Claude Code plugin manifest convention is `repository: "<url-string>"`. Different schemas — don't reuse npm habits.
+- If you were on any prior version (0.1.x, 0.2.0, 0.3.0) and the commands never showed up, this is why. Upgrade to 0.3.1 to fix.
+
+[0.3.1]: https://github.com/MarcosNahuel/antigravity-plugin-cc/releases/tag/v0.3.1
+
 ## [0.3.0] — 2026-05-25
 
 Feature release: three new slash commands that exercise agy's lesser-known agentic capabilities — structured web scraping, multimodal document conversion, and visual/UX design review.
