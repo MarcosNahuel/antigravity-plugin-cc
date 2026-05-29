@@ -6,8 +6,8 @@
     "email": "contact@traidai.com"
   },
   "metadata": {
-    "description": "Antigravity plugin for Claude Code: deep web research with citations, code rescue, task delegation, browser walkthrough recording, structured web scraping, document-to-markdown conversion, and visual/UX design review via Google Antigravity CLI (agy / Gemini 3.x). The modern successor to gemini-plugin-cc — no Node.js runtime, just seven slash commands and a thin Bash forwarder.",
-    "version": "0.3.0",
+    "description": "Antigravity plugin for Claude Code (agy / Gemini 3.x): branded HTML report generation via the TRAID Design System (5 templates), deep web research with citations, one-shot prompts, git-diff code review, code/task rescue, browser walkthrough recording, structured web scraping, document-to-markdown conversion, and visual/UX design review. Ten slash commands, a thin Bash forwarder, no Node.js runtime. The modern successor to gemini-plugin-cc.",
+    "version": "0.6.0",
     "homepage": "https://github.com/MarcosNahuel/antigravity-plugin-cc",
     "keywords": [
       "claude-code",
@@ -27,8 +27,8 @@
   "plugins": [
     {
       "name": "antigravity",
-      "description": "Seven slash commands wrapping Google Antigravity CLI (agy): /agy:research (deep web research with citations, docs/agy/research/), /agy:rescue (code/diagnosis task delegation), /agy:record (browser walkthrough recording — .webm + optional MP4 via ffmpeg, docs/agy/recordings/), /agy:scrape (structured data extraction from URL — markdown or JSON, docs/agy/scrapes/), /agy:doc-to-md (PDF/docx/image to clean Markdown via multimodal Gemini, docs/agy/converted/), /agy:design-review (UX/visual audit with desktop+mobile screenshots and 10-dimension scoring, docs/agy/design-reviews/), /agy:setup (health check). Thin Bash forwarder, no runtime dependencies.",
-      "version": "0.3.1",
+      "description": "Ten slash commands wrapping Google Antigravity CLI (agy): /agy:report (branded HTML from markdown via 5 TRAID Design System templates, docs/agy/reports/), /agy:ask (one-shot quick prompt), /agy:review (git-diff code review), /agy:research (deep web research with citations, docs/agy/research/), /agy:rescue (code/diagnosis task delegation), /agy:record (browser walkthrough recording — .webm + optional MP4 via ffmpeg), /agy:scrape (structured data extraction from URL — markdown or JSON), /agy:doc-to-md (PDF/docx/image to clean Markdown via multimodal Gemini), /agy:design-review (UX/visual audit with desktop+mobile screenshots and 10-dimension scoring), /agy:setup (health check). Includes the issue-#76 write_file workaround and Windows rename-bug (#217) mitigation. Thin Bash forwarder, no runtime dependencies.",
+      "version": "0.6.0",
       "author": {
         "name": "Marcos Nahuel Albornoz",
         "url": "https://github.com/MarcosNahuel"

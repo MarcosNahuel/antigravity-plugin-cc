@@ -1,7 +1,7 @@
 {
   "name": "antigravity",
-  "version": "0.3.1",
-  "description": "Antigravity plugin for Claude Code: deep web research with citations, code rescue, task delegation, browser walkthrough recording, structured web scraping, document-to-markdown conversion, and visual/UX design review via Google Antigravity CLI (agy / Gemini 3.x). Seven slash commands — /agy:research, /agy:rescue, /agy:record, /agy:scrape, /agy:doc-to-md, /agy:design-review, /agy:setup — and a thin Bash forwarder. No Node.js runtime.",
+  "version": "0.6.0",
+  "description": "Antigravity plugin for Claude Code with TRAID Design System: 5 canonical HTML templates (traid-dark, traid-light, stripe-press, notion-docs, magazine) for branded report generation from markdown. Plus quick one-shot prompts, git-diff code review, deep web research with citations, code rescue, task delegation, browser walkthrough recording, structured web scraping, document-to-markdown conversion, and visual/UX design review via Google Antigravity CLI (agy / Gemini 3.x). Ten slash commands — /agy:report, /agy:ask, /agy:review, /agy:research, /agy:rescue, /agy:record, /agy:scrape, /agy:doc-to-md, /agy:design-review, /agy:setup — with `--background` support on long-running modes, --template override on /agy:report, the write_file workaround for issue #76 baked in, and Windows rename-bug mitigation (pre-flight .tmp sweep + retry on output-file miss). No Node.js runtime.",
   "author": {
     "name": "Marcos Nahuel Albornoz",
     "email": "contact@traidai.com",
@@ -36,6 +36,17 @@
     "multimodal-conversion",
     "design-review",
     "ux-audit",
-    "visual-audit"
+    "visual-audit",
+    "code-review",
+    "git-diff",
+    "background-tasks",
+    "html-report",
+    "infographic",
+    "imagen",
+    "markdown-to-html",
+    "windows-mitigation",
+    "design-system",
+    "traid-brand",
+    "template-gallery"
   ]
 }

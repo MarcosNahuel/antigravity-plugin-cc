@@ -4,6 +4,25 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] — 2026-05-29
+
+Feature release: branded HTML report generation via the TRAID Design System, two quick-use commands, and Windows reliability hardening.
+
+### Added
+
+- **`/agy:report <markdown> [--template <id>] [--output <path>]`** — generate a publication-grade, self-contained HTML report from a markdown source using the TRAID Design System catalog of 5 canonical templates (`traid-dark`, `traid-light`, `stripe-press`, `notion-docs`, `magazine`). Two-phase flow: agy analyzes the source and recommends 1–3 templates, you pick (or pass `--template` to skip analysis), then agy generates the final branded HTML — inlining Imagen-generated images for any `![generate: ...]` cues. Output to `docs/agy/reports/YYYY-MM-DD-<slug>.html`.
+- **`/agy:ask <prompt>`** — one-shot quick prompt to agy; returns the response verbatim, no `docs/` persistence (uses the temp-file write-to-file workaround for issue #76).
+- **`/agy:review [focus]`** — sends the current `git diff` to agy for code review with optional focus text.
+- **TRAID Design System** — 5 canonical HTML templates with full palette / typography / component specs, embedded in the `report-analyze` catalog so agy can match content to the right template.
+
+### Changed
+
+- **`agy-rescue` subagent gained four new mode branches** (`ask`, `review`, `report-analyze`, `report-generate`) — now 10 modes total.
+- **Windows rename bug (issue #217) hardening** — the output-file existence check now does a `sleep 2 && agy …` backoff retry (was an immediate retry that lost the same Defender scan race), and the pre-flight `.tmp` sweep gained a PowerShell fallback for non-Git-Bash shells. Root cause: Windows Defender real-time scan holds a handle on the freshly-written conversation `.tmp` at `MoveFileEx` time. Non-fatal for report/research flows (deliverable writes to a different path via `write_file` + `--add-dir`); the permanent fix is a Defender exclusion on the conversations dir.
+- **Marketplace and plugin descriptions / keywords** updated to list ten commands and the design-system capability.
+
+[0.6.0]: https://github.com/MarcosNahuel/antigravity-plugin-cc/releases/tag/v0.6.0
+
 ## [0.3.1] — 2026-05-25
 
 Hotfix release: plugin manifest schema fix.
