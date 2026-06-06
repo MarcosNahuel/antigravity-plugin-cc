@@ -4,6 +4,50 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] — 2026-06-06
+
+Reliability release: full recovery path for the upstream empty-stdout bug (issue #76), driven by community findings on the upstream issue thread (confirmed through agy 1.0.5).
+
+### Added
+
+- **Transcript recovery (Plan B) for issue #76.** When `agy --print` exits 0 with empty stdout and no output file, the `agy-rescue` subagent now recovers the dropped response from the on-disk transcript — `cache/last_conversations.json[cwd]` → `brain/<cid>/.system_generated/logs/transcript.jsonl` → last `PLANNER_RESPONSE.content`. Confirmed by three independent reporters on the upstream thread. This makes `/agy:rescue` (which has no `write_file` instruction) usable in subprocess mode for the first time, and acts as a safety net for every other mode if the `write_file` workaround misses.
+- **Headless auth-timeout detection (new agy 1.0.5 failure mode).** A distinct failure where silent auth times out before generation (`keyringAuth: timed out` → `Print mode: auth timed out`) — the model never runs, so nothing is recoverable. The subagent now detects this in the log and returns an actionable re-auth message instead of a silent empty result, and does NOT waste a retry on it.
+- **Three-way failure-mode triage table** in the subagent (`text_drip length=N` → #76 recover; `rename … Access is denied` → #217 retry; `auth timed out` → re-auth) so the right recovery runs for each.
+
+### Changed
+
+- **`--print-timeout` documented as non-binding.** Community reports confirm agy runs past the stated `--print-timeout` (e.g. 15s requested, exited ~41s). The subagent now treats it as a hint and instructs setting the `Bash` tool's own timeout with headroom; it also warns that `high` research (`20m0s`) exceeds the `Bash` tool's 10m ceiling and should run in the background.
+
+### Fixed
+
+- **Corrected the stale `--model` claim.** Prior docs (since v0.1.1) stated `--model` does not exist in `agy` 1.0.x. That was true for 1.0.0/1.0.1 but **agy 1.0.5+ accepts `--model "<name>"`** (community-confirmed). The plugin still defaults to omitting `--model` for cross-version safety, but `SKILL.md` and the subagent no longer assert the flag is universally invalid.
+
+### Notes
+
+- Source for all of the above: the upstream issue thread [google-antigravity/antigravity-cli#76](https://github.com/google-antigravity/antigravity-cli/issues/76). The empty-stdout bug remains **unfixed upstream** as of agy 1.0.5 (2026-06-05); these are wrapper-side mitigations, not a fix.
+- Transcript recovery keys by **cwd** and agy emits no stable run id, so it is fragile under concurrent agy runs from the same directory. Fine for normal one-call-at-a-time usage; not safe for parallel fan-out from the same cwd.
+
+[0.6.1]: https://github.com/MarcosNahuel/antigravity-plugin-cc/releases/tag/v0.6.1
+
+## [0.6.0] — 2026-05-29
+
+Feature release: branded HTML report generation via the TRAID Design System, two quick-use commands, and Windows reliability hardening.
+
+### Added
+
+- **`/agy:report <markdown> [--template <id>] [--output <path>]`** — generate a publication-grade, self-contained HTML report from a markdown source using the TRAID Design System catalog of 5 canonical templates (`traid-dark`, `traid-light`, `stripe-press`, `notion-docs`, `magazine`). Two-phase flow: agy analyzes the source and recommends 1–3 templates, you pick (or pass `--template` to skip analysis), then agy generates the final branded HTML — inlining Imagen-generated images for any `![generate: ...]` cues. Output to `docs/agy/reports/YYYY-MM-DD-<slug>.html`.
+- **`/agy:ask <prompt>`** — one-shot quick prompt to agy; returns the response verbatim, no `docs/` persistence (uses the temp-file write-to-file workaround for issue #76).
+- **`/agy:review [focus]`** — sends the current `git diff` to agy for code review with optional focus text.
+- **TRAID Design System** — 5 canonical HTML templates with full palette / typography / component specs, embedded in the `report-analyze` catalog so agy can match content to the right template.
+
+### Changed
+
+- **`agy-rescue` subagent gained four new mode branches** (`ask`, `review`, `report-analyze`, `report-generate`) — now 10 modes total.
+- **Windows rename bug (issue #217) hardening** — the output-file existence check now does a `sleep 2 && agy …` backoff retry (was an immediate retry that lost the same Defender scan race), and the pre-flight `.tmp` sweep gained a PowerShell fallback for non-Git-Bash shells. Root cause: Windows Defender real-time scan holds a handle on the freshly-written conversation `.tmp` at `MoveFileEx` time. Non-fatal for report/research flows (deliverable writes to a different path via `write_file` + `--add-dir`); the permanent fix is a Defender exclusion on the conversations dir.
+- **Marketplace and plugin descriptions / keywords** updated to list ten commands and the design-system capability.
+
+[0.6.0]: https://github.com/MarcosNahuel/antigravity-plugin-cc/releases/tag/v0.6.0
+
 ## [0.3.1] — 2026-05-25
 
 Hotfix release: plugin manifest schema fix.

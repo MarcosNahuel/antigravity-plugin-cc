@@ -1,6 +1,6 @@
 ---
 description: Run deep web research with Antigravity (agy) at chosen intensity. Saves output to docs/agy/research/ automatically.
-argument-hint: "[--intensity low|medium|high] <topic>"
+argument-hint: "[--background] [--intensity low|medium|high] <topic>"
 context: fork
 allowed-tools: Bash, Write
 ---
@@ -12,8 +12,9 @@ $ARGUMENTS
 
 Routing rules:
 
+- If the request contains `--background`, invoke the subagent with `run_in_background: true`. Research at `high` intensity can take 15–20min — background is the sensible default for that case but only when the user explicitly opted in. Strip the flag from the topic.
 - Parse `--intensity <low|medium|high>` from the user text. Default to `medium` if missing or invalid.
-- Strip the routing flag from the user text. What remains IS the topic. Trim whitespace.
+- Strip the routing flags (`--background`, `--intensity`) from the user text. What remains IS the topic. Trim whitespace.
 - Build a slug from the topic: lowercase, replace non-alphanumeric with `-`, collapse repeated `-`, trim to 60 chars.
 - Compute today's date in `YYYY-MM-DD` (ISO, local time).
 - Compute `WRITE_FILE` = `docs/agy/research/<YYYY-MM-DD>-<slug>.md` (relative to the current working directory).
@@ -35,7 +36,7 @@ USER_TEXT:
 <topic>
 ```
 
-> **Note**: `agy` CLI 1.0.x does not accept a `--model` flag. Model selection is internal to the CLI. Intensity now controls the timeout and the prompt template only.
+> **Note**: `--model` was rejected by `agy` 1.0.0/1.0.1 but is accepted again in **agy 1.0.5+**. This plugin defaults to omitting it, so `agy` picks the model from its own settings; intensity controls the timeout and prompt template only.
 
 Operating rules:
 
