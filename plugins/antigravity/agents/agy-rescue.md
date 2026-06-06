@@ -32,16 +32,84 @@ agy --dangerously-skip-permissions [--add-dir <CWD>] --print-timeout <TIMEOUT> [
 - **`--print` MUST be the LAST flag before the prompt.** Go's flag parser treats `--print` as a value-taking flag (it consumes the next token as the prompt). If you put `--print` anywhere other than at the end, it will eat the next flag (e.g., `--print --dangerously-skip-permissions` parses as `--print="--dangerously-skip-permissions"` and agy will respond to `--dangerously-skip-permissions` as if that were the user's prompt).
 - `--dangerously-skip-permissions` auto-approves all tool permission requests so agy can run unattended.
 - `--add-dir <CWD>` grants agy write access to the project directory so it can save artifacts (reports, recordings) directly into the repo. Use the **absolute** path of the calling CWD. Omit this flag only if no file output is needed.
-- `--print-timeout` is required for long tasks; default of `5m0s` is too short for `high` intensity or recording flows.
+- `--print-timeout` is required for long tasks; default of `5m0s` is too short for `high` intensity or recording flows. **Caveat (issue #76):** `--print-timeout` does NOT reliably bound the run — community reports show agy running well past the stated value (e.g. `15s` requested, exited at `~41s`). Treat it as a hint, not a hard limit. Always set the `Bash` tool's own `timeout` to at least the `--print-timeout` value plus ~30s of headroom so the tool call does not kill agy mid-flight. NOTE: the `Bash` tool caps at 600000 ms (10m), so `high` research (`20m0s`) cannot run to completion in a single foreground call — for `high`, either run it in the background or warn the caller that 10m is the hard ceiling.
 - `--continue` resumes the last conversation. Add only if `RESUME: true`.
 - Quote the prompt with double quotes and escape any internal `"` as `\"`. On Windows Git Bash, prefer single quotes around the whole command and escape internal single quotes.
-- **There is no `--model` flag in `agy` CLI 1.0.x.** Model selection is internal to the CLI. Do not pass `--model` — it makes the binary exit with `flags provided but not defined: -model`.
+- **`--model` support is version-dependent.** Early `agy` 1.0.0/1.0.1 reject `--model` with `flags provided but not defined: -model`; **agy 1.0.5+ accepts it** (e.g. `--model "Gemini 3.1 Pro (High)"`, community-confirmed on #76). Because the installed version is not known at call time, this plugin **defaults to NOT passing `--model`** (cross-version-safe — agy uses its configured default). Only pass `--model` if the caller explicitly set `MODEL:` AND you have confirmed the local `agy --version` is ≥ 1.0.5; otherwise omit it.
 
-## Known issue — empty stdout in --print mode (agy v1.0.x)
+## Known issue — empty stdout in --print mode (agy 1.0.0 – 1.0.5)
 
 `agy --print` has a known upstream bug (issue #76 at https://github.com/google-antigravity/antigravity-cli/issues/76) where, when stdout is not a TTY (i.e., when called from any subprocess including this agent), the binary exits 0 but writes zero bytes to stdout — even though the model generated a full response. The agy log shows `text_drip.go: Drip stopped: length=<N>` confirming the response was produced but never flushed.
 
-**Workaround used by this plugin:** instruct agy in the prompt itself to write its output via `write_file` to a known path. Then read that file from the calling agent. Do NOT rely on capturing stdout for the actual content. Use stdout only as a "did it crash" signal.
+**Status:** still unfixed as of agy **1.0.5** (community-confirmed on the issue through 2026-06-05, across Windows 10/11, WSL, and macOS). Do NOT assume a newer agy build resolves this — keep the workarounds below until the upstream issue closes.
+
+**Primary workaround used by this plugin:** instruct agy in the prompt itself to write its output via `write_file` to a known path. Then read that file from the calling agent. Do NOT rely on capturing stdout for the actual content. Use stdout only as a "did it crash" signal.
+
+**Fallback workaround (Plan B — transcript recovery):** when there is no `write_file` instruction (e.g. `rescue` mode) OR the expected output file is missing after a clean exit, the response is still recoverable. agy persists every conversation's model output to disk even when stdout is dropped — confirmed independently by three reporters on #76. See "Recovering a dropped response" below.
+
+## Recovering a dropped response (transcript.jsonl — Plan B)
+
+When `agy --print` exits 0 but produced no stdout AND no expected output file, the model's answer is almost always sitting in the per-conversation transcript on disk. Recover it with ONE Bash call (Git Bash / POSIX — the default `Bash` tool):
+
+```bash
+GROOT="$HOME/.gemini/antigravity-cli"
+# last_conversations.json keys by the cwd that invoked agy → conversation id
+CID=$(python - "$PWD" <<'PY' 2>/dev/null
+import json, sys, os
+cwd = sys.argv[1]
+p = os.path.expanduser("~/.gemini/antigravity-cli/cache/last_conversations.json")
+d = json.load(open(p, encoding="utf-8"))
+# match the invoking cwd (exact, else the single most-recent entry)
+print(d.get(cwd) or d.get(os.path.normpath(cwd)) or (list(d.values())[-1] if len(d)==1 else ""))
+PY
+)
+TX="$GROOT/brain/$CID/.system_generated/logs/transcript.jsonl"
+# last MODEL / PLANNER_RESPONSE .content is the final answer
+[ -n "$CID" ] && [ -f "$TX" ] && python - "$TX" <<'PY'
+import json, sys
+last = None
+for line in open(sys.argv[1], encoding="utf-8"):
+    line = line.strip()
+    if not line: continue
+    try: o = json.loads(line)
+    except Exception: continue
+    if o.get("source") == "MODEL" and o.get("type") == "PLANNER_RESPONSE" and o.get("content"):
+        last = o["content"]
+if last: print(last)
+PY
+```
+
+If `python` is unavailable, fall back to reading `cache/last_conversations.json` and the transcript with the Read tool and extracting the last `PLANNER_RESPONSE.content` manually.
+
+**Caveats (from the #76 thread):**
+- `last_conversations.json` keys by **cwd**, and agy does not emit a stable run id, so this is **fragile under concurrent agy runs from the same cwd** — the most recent conversation for that cwd wins. For single-user, one-call-at-a-time usage (this plugin's normal case) it is reliable.
+- The transcript has **no token-usage metadata** (`input_tokens` / `output_tokens` are absent), so do not try to report usage from it.
+- This recovers content only when generation actually happened (a `text_drip.go: Drip stopped: length=N` line exists in the log). If generation never ran — see the auth-timeout failure mode below — the transcript will not contain the answer.
+
+## Known issue — headless auth timeout (agy 1.0.5, distinct from #76)
+
+A newer, **separate** failure mode appears on agy 1.0.5 (Cafeynman on #76, 2026-06-04): in a headless/non-TTY call, agy's silent auth times out before any generation happens. The log shows:
+
+```
+printmode.go: Print mode: not authenticated, trying silent auth
+keyring.go:   keyringAuth: timed out after 5s, skipping keyring auth
+printmode.go: Print mode: silent auth failed, triggering OAuth
+printmode.go: Print mode: auth timed out
+```
+
+In this case there is **no `streamGenerateContent`, no `text_drip`, and nothing in transcript.jsonl** — the model never ran, so neither the `write_file` workaround nor the transcript Plan B can recover anything. `--print-timeout` does NOT bound it; the process can hang well past the stated timeout and then exit 0 with empty stdout.
+
+**How this agent must handle it:** if the output file is missing AND the log shows `auth timed out` / `silent auth failed` / `keyringAuth: timed out`, do NOT silently return empty and do NOT retry (a retry hits the same auth wall). Return a clear, actionable message to the caller:
+
+> agy headless auth timed out (not issue #76 — the model never ran). Fix: run `agy` interactively once in a real terminal to refresh the keyring/OAuth session, then retry. If it persists, re-auth agy.
+
+Distinguish the three failure modes by tailing the latest `~/.gemini/antigravity-cli/log/cli-*.log`:
+
+| Log signature | Failure | This agent's action |
+|---|---|---|
+| `text_drip … length=N` present, output file missing | #76 empty-stdout (response generated) | recover via transcript Plan B / return stdout |
+| `rename … Access is denied` | #217 Windows Defender race | `sleep 2` + retry once (see below) |
+| `auth timed out` / `silent auth failed` | 1.0.5 headless auth timeout | surface the re-auth message, do NOT retry |
 
 ## Known issue — Windows `rename .tmp → .pb: Access is denied` (observed 2026-05-28, re-confirmed 2026-05-29)
 
@@ -80,14 +148,14 @@ When this happens, agy exits 0 but the `WRITE_FILE` you instructed it to write *
 
    The 5-minute guard keeps in-flight tmps from a concurrent agy run untouched. This is fire-and-forget — never fail the request because the sweep failed.
 
-2. **Output-file existence check after exit 0, with backoff retry.** For any mode that uses a `WRITE_FILE` (research / ask / review / scrape / doc-to-md / design-review / report-generate), after the agy call exits successfully, verify the `WRITE_FILE` exists and is non-empty. If it does not:
-   - Tail the most recent `~/.gemini/antigravity-cli/log/cli-*.log` (one extra Bash call) and look for `rename .* Access is denied`.
-   - If you see that pattern: this is the Windows rename bug — the original call lost the race to Defender. **Sleep ~2s, then retry agy ONCE with the same prompt, in the SAME Bash call** so the backoff costs no extra call budget:
+2. **Output-file existence check after exit 0, with triage.** For any mode that uses a `WRITE_FILE` (research / ask / review / scrape / doc-to-md / design-review / report-generate), after the agy call exits successfully, verify the `WRITE_FILE` exists and is non-empty. If it does not, tail the most recent `~/.gemini/antigravity-cli/log/cli-*.log` (one extra Bash call) and branch on what the log shows (see the failure-mode table above):
+   - **`rename … Access is denied`** → Windows Defender race (#217). The original call lost the race to Defender. **Sleep ~2s, then retry agy ONCE with the same prompt, in the SAME Bash call** so the backoff costs no extra call budget:
      ```bash
      sleep 2 && agy --dangerously-skip-permissions [same flags...] --print "<same prompt>"
      ```
      The 2s pause lets Defender finish scanning and release the `.tmp` handle, so the retry's rename usually wins. Do not retry a second time — if it still fails, the path is being held persistently: surface the permanent Defender exclusion command (top of this section) to the user and stop.
-   - If you do NOT see the rename error and the file is still missing: this is likely issue #76 (stdout-only response). Return the captured stdout to the caller verbatim.
+   - **`auth timed out` / `silent auth failed` / `keyringAuth: timed out`** → headless auth timeout (1.0.5). The model never ran; nothing is recoverable. Do NOT retry. Return the re-auth message from the "headless auth timeout" section above and stop.
+   - **`text_drip … length=N` present (or none of the above)** → issue #76 (response generated, stdout dropped). Recover it with the **transcript Plan B** (see "Recovering a dropped response"): resolve the conversation id from `cache/last_conversations.json[cwd]`, read `brain/<cid>/.system_generated/logs/transcript.jsonl`, and return the last `PLANNER_RESPONSE.content`. Only if Plan B also yields nothing, return the captured stdout verbatim plus a note that the response could not be recovered.
 
 3. **Setup mode is exempt** from the output-file check (it has no `WRITE_FILE`), but it still does the pre-flight sweep.
 
@@ -138,7 +206,7 @@ USER_TEXT:
 - Default timeout: `8m0s`.
 - If `RESUME: true`, add `--continue`.
 - `--add-dir` only if the caller passed one.
-- Capture stdout. Print it verbatim. (Note: due to issue #76, stdout may be empty — if so, report that and suggest the caller use a write-to-file prompt pattern.)
+- Capture stdout. If non-empty, print it verbatim. **If stdout is empty (issue #76 — the common case in subprocess mode), do NOT give up:** tail the latest log to triage (failure-mode table above), then recover the answer via the **transcript Plan B** ("Recovering a dropped response") and return that content verbatim. Only if the log shows the auth-timeout signature, return the re-auth message instead. Only if both stdout and Plan B are empty and it is not an auth timeout, report that the response could not be recovered and suggest the caller use a write-to-file prompt pattern.
 
 ### Mode: ask
 
@@ -168,7 +236,7 @@ One-shot quick prompt. Bypasses issue #76 by writing to a temp file (no `docs/` 
   ```
 - After agy returns, read `$TEMP_FILE` with the Read tool and return its content verbatim to the caller.
 - Cleanup: one final Bash call `rm -rf "$TEMP_DIR"` after reading.
-- If `$TEMP_FILE` does not exist after agy exits, return agy's stdout (often a clue) plus the error message: "agy did not write the expected output file at $TEMP_FILE. Stdout (may be empty due to issue #76):" followed by the captured stdout.
+- If `$TEMP_FILE` does not exist after agy exits, run the triage + transcript Plan B (see "Recovering a dropped response") before giving up: tail the log, and if it is the #76 empty-stdout case, recover the answer from `transcript.jsonl` and return it. If the log shows the auth-timeout signature, return the re-auth message. Only if recovery yields nothing, return agy's stdout plus: "agy did not write the expected output file at $TEMP_FILE and the response could not be recovered. Stdout (may be empty due to issue #76):" followed by the captured stdout.
 
 ### Mode: review
 
@@ -732,6 +800,7 @@ Phase 2 of the `/agy:report` flow. Read source markdown + style spec, ask agy to
 
 - One `Bash` call for the main `agy` invocation per attempt (mode `research`/`ask`/`review`/`scrape`/`doc-to-md`/`design-review`/`report-generate` may retry once if the WRITE_FILE check detects the Windows rename bug — a second `Bash` call to agy is allowed only on retry, not for branching logic).
 - The pre-flight `.tmp` sweep adds one Bash call before agy in every mode. The output-file check adds one Bash call after agy (test -s + optional log tail) in modes with WRITE_FILE.
+- **Response recovery is allowed when output is missing/empty** (issue #76): one Bash call to tail the log for triage, and one Bash call to run the transcript Plan B recovery. These are recovery calls, not exploration — only run them when stdout is empty or the WRITE_FILE check failed, never speculatively. `rescue` mode (no WRITE_FILE) may use these same two recovery calls when stdout comes back empty.
 - Mode `record` and `research` may use one additional `Bash` call for post-processing (file moves, ffmpeg) and one `Write` call to prepend frontmatter or append a hint. Mode `setup` may use one additional `Bash` call for the version/log check. Mode `ask` may use one Bash call before agy (mktemp) and one after (rm). Mode `review` may use one Bash call before (size check on DIFF_FILE + mktemp) and one after (rm of both temp dirs). Mode `report-generate` may use one Bash call for output dir setup and one after for image asset moves.
 - Do NOT inspect the repository, read other files, grep, monitor progress, or do follow-up reasoning beyond what each mode requires.
 - Do NOT paraphrase, summarize, or rewrite agy's output. Return it as-is.

@@ -64,7 +64,7 @@ These are CALLER-SIDE controls, never include them in the agy prompt text:
 - `--continue` — resume the most recent agy conversation
 - `--conversation <id>` — resume a specific past conversation
 
-> **Removed in v0.1.1**: `--model` is not a valid `agy` CLI flag in 1.0.x — passing it makes the binary exit with `flags provided but not defined: -model`. Model selection is internal to the CLI. If you need a specific model, change it via `agy` interactive settings, not via the prompt.
+> **`--model` is version-dependent** (corrected v0.6.1): early `agy` 1.0.0/1.0.1 reject it with `flags provided but not defined: -model`, but **agy 1.0.5+ accepts** `--model "<name>"` (e.g. `--model "Gemini 3.1 Pro (High)"`, community-confirmed on issue #76). Since the installed version isn't known at call time, this plugin defaults to NOT passing `--model` (cross-version-safe — agy uses its configured default). Pass it only when the caller explicitly asked for a model AND `agy --version` is ≥ 1.0.5. Either way, `--model` is a CALLER-SIDE flag — never put it in the prompt text.
 
 ## When in doubt
 

@@ -30,7 +30,7 @@ USER_TEXT:
 <cleaned user request>
 ```
 
-> **Note**: `agy` CLI 1.0.x does not accept a `--model` flag. Model selection is internal to the CLI (defaults to Gemini 3.5 Flash "Medium"). The `MODEL:` header field is reserved for forward compatibility and is currently ignored by the subagent.
+> **Note**: `--model` was rejected by `agy` 1.0.0/1.0.1 but is accepted again in **agy 1.0.5+**. This plugin defaults to omitting it (cross-version-safe — `agy` uses its configured default, typically Gemini 3.5 Flash "Medium"). The `MODEL:` header field is passed through to the subagent, which only forwards `--model` when set AND the local `agy --version` is ≥ 1.0.5; otherwise it's ignored.
 
 Operating rules:
 

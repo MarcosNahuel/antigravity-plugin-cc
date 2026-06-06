@@ -36,7 +36,7 @@ USER_TEXT:
 <topic>
 ```
 
-> **Note**: `agy` CLI 1.0.x does not accept a `--model` flag. Model selection is internal to the CLI. Intensity now controls the timeout and the prompt template only.
+> **Note**: `--model` was rejected by `agy` 1.0.0/1.0.1 but is accepted again in **agy 1.0.5+**. This plugin defaults to omitting it, so `agy` picks the model from its own settings; intensity controls the timeout and prompt template only.
 
 Operating rules:
 

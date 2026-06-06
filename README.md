@@ -66,7 +66,7 @@ The killer use case is **deep web research with citations** — Claude reasons o
 | `medium` | 8 min | 8–12 triangulated | Executive summary · Key findings · Analysis · References |
 | `high` | 20 min | 15+ primary sources | TL;DR · Context · Findings · Comparisons · Risks · Evidence gaps · Conclusion · References |
 
-> **Model selection in v0.1.1**: the `agy` CLI 1.0.x does not accept a `--model` flag (the binary exits with `flags provided but not defined: -model`). Model is chosen internally by `agy` based on its own settings — defaults to Gemini 3.5 Flash for casual prompts and Gemini 3.5 Pro for heavier work. The `--model` flag that earlier versions of this plugin documented has been removed in v0.1.1. Provider routing (Claude / GPT-OSS via `agy`) is on the roadmap pending an upstream CLI flag.
+> **Model selection (updated v0.6.1)**: early `agy` 1.0.0/1.0.1 rejected `--model` (`flags provided but not defined: -model`), so this plugin removed it in v0.1.1. **agy 1.0.5+ accepts `--model "<name>"` again** (e.g. `--model "Gemini 3.1 Pro (High)"`). Because the plugin can't know your installed version at call time, it still **defaults to letting `agy` pick** (Gemini 3.5 Flash for casual prompts, Gemini 3.5 Pro for heavier work) for cross-version safety. If you're on 1.0.5+ and want a specific model, set it in `agy`'s interactive settings. Provider routing (Claude / GPT-OSS via `agy`) works through `agy`'s own configuration.
 
 ---
 
@@ -252,7 +252,7 @@ No. `agy` uses your Google OAuth login (the same one you set up the first time y
 
 ### What models does it use?
 
-Whatever `agy` decides internally — at the time of writing the CLI 1.0.x default is Gemini 3.5 Flash. The `--model` CLI flag is **not exposed** in agy 1.0.x (passing it makes the binary exit with `flags provided but not defined: -model`), so this plugin no longer accepts a model override. The `agy` ecosystem can route to Claude / GPT-OSS through internal configuration, but until the CLI exposes a flag, model choice happens inside `agy`, not from Claude Code.
+By default, whatever `agy` decides internally — the CLI default is Gemini 3.5 Flash for casual prompts, Gemini 3.5 Pro for heavier work. The `--model` flag was rejected by agy 1.0.0/1.0.1 but is **accepted again in agy 1.0.5+** (e.g. `--model "Gemini 3.1 Pro (High)"`). This plugin defaults to omitting it (cross-version-safe), so on any version you get `agy`'s configured default; set a specific model in `agy`'s interactive settings if you want one. The `agy` ecosystem can also route to Claude / GPT-OSS through its own configuration.
 
 ### Where does the research output get saved?
 
@@ -268,12 +268,13 @@ Yes. The subagent resolves the `agy` binary in this order: `AGY_BIN` env var →
 
 ### What if `/agy:setup` hangs or returns empty?
 
-In `agy` CLI 1.0.x, an empty stdout with exit code 0 is **ambiguous**. Two real causes:
+In `agy` CLI 1.0.x–1.0.5, an empty stdout with exit code 0 is **ambiguous**. Three real causes — tail the latest `~/.gemini/antigravity-cli/log/cli-*.log` to tell them apart:
 
-1. **Tool-call loop** (most common): `agy` defaults to an agentic mode that may call `ListDir`, `Search`, `ReadFile` even for trivial prompts. If `--print-timeout` cuts the process before the response buffer flushes, you get exit 0 with no output. v0.1.1 of this plugin sends an explicit "do not use any tools" instruction in the setup ping to avoid this. If you still hit it, raise the timeout.
-2. **OAuth missing**: verify with `ls ~/.gemini/antigravity-cli/installation_id`. If absent or empty, open a regular terminal (not inside Claude Code) and run `agy` once — go through the browser login, then exit. After that, `agy --print` will inherit the auth.
+1. **Empty-stdout bug ([issue #76](https://github.com/google-antigravity/antigravity-cli/issues/76), most common in subprocess mode)**: the log shows `text_drip.go: Drip stopped: length=N` — the model *did* answer, but agy drops the bytes when stdout isn't a TTY. **The response is still on disk**, so v0.6.1 of this plugin recovers it automatically from the per-conversation transcript (`brain/<cid>/.system_generated/logs/transcript.jsonl`). The bug is still unfixed upstream as of agy 1.0.5.
+2. **Headless auth timeout (agy 1.0.5)**: the log shows `keyringAuth: timed out` → `Print mode: auth timed out`. Here the model never ran. Open a regular terminal (not inside Claude Code), run `agy` once to refresh the keyring/OAuth session, then retry. v0.6.1 detects this and tells you instead of returning a silent empty result.
+3. **Tool-call loop**: `agy`'s agentic mode may call `ListDir`/`Search`/`ReadFile` even for trivial prompts. The setup ping sends an explicit "do not use any tools" instruction to avoid this; if you still hit it, raise the timeout.
 
-Older docs of this plugin pointed only at OAuth — that turned out to be incomplete. See `CHANGELOG.md` for the full v0.1.1 rationale.
+Also verify OAuth with `ls ~/.gemini/antigravity-cli/installation_id` (absent/empty → run `agy` interactively once to log in). See `CHANGELOG.md` for the v0.6.1 recovery details and v0.1.1 history.
 
 ### Does this plugin send my code anywhere?
 
