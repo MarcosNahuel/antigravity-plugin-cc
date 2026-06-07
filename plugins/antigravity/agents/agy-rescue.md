@@ -195,6 +195,7 @@ SOURCE_FILE: <absolute path to markdown source>
 # report-generate mode adds:
 SOURCE_FILE: <absolute path to markdown source>
 STYLE_SPEC: <multiline style block: name + description + palette + vibe>
+IMAGES: native|external|none      # how ![generate: ...] cues become images (default native)
 USER_TEXT:
 <the raw user request goes here>
 ```
@@ -691,10 +692,16 @@ Phase 1 of the `/agy:report` flow. Read the source markdown and match it against
 
 ### Mode: report-generate
 
-Phase 2 of the `/agy:report` flow. Read source markdown + style spec, ask agy to generate self-contained HTML with Imagen-generated images for `![generate: ...]` cues, write to WRITE_FILE.
+Phase 2 of the `/agy:report` flow. Read source markdown + style spec, ask agy to generate self-contained branded HTML, handling `![generate: ...]` image cues per the `IMAGES` mode (native generation / external pre-generated / placeholder), write to WRITE_FILE, then verify referenced images exist.
 
 - Default timeout: `15m0s` (image generation + HTML composition is expensive).
-- Pre-check: the caller passes `WRITE_FILE` (absolute path under `docs/agy/reports/`) and `SOURCE_FILE` (absolute path to markdown). The parent dir of WRITE_FILE must already exist (the slash command created it).
+- Pre-check: the caller passes `WRITE_FILE` (absolute path under `docs/agy/reports/`), `SOURCE_FILE` (absolute path to markdown), and `IMAGES` (`native` | `external` | `none`, default `native`). The parent dir of WRITE_FILE must already exist (the slash command created it).
+- **Compute `ASSETS_DIR`** = `WRITE_FILE` with the trailing `.html` replaced by `.assets` (e.g. `.../2026-06-06-x.html` → `.../2026-06-06-x.assets`). This is the canonical assets path — the `<img src>` in the HTML must reference it **relative to the HTML** (i.e. `<basename>.assets/<slug>.png`). Do NOT use `<WRITE_FILE>.assets` (that would append `.assets` after `.html`). Create it with one Bash call before invoking agy: `mkdir -p "<ASSETS_DIR>"`.
+- **Slug convention (deterministic, shared with `external` mode):** for each `![generate: <description>]` cue, `slug` = description lowercased, non-alphanumeric → `-`, collapsed, trimmed to 60 chars; filename = `<slug>.png`. This MUST match exactly between what agy writes (`native`) and what a caller pre-generates (`external`).
+- **IMAGES mode** controls how cues become images (see the Image cues section of the prompt below):
+  - `native` (default): agy generates each image itself via its `generate_image` tool. Works without external deps but quality/format is inconsistent in headless mode (agy 1.0.6 sometimes emits JPEG bytes with a `.png` name, or skips generation entirely — the post-generation check below catches this).
+  - `external`: agy does NOT generate images. It references `<basename>.assets/<slug>.png` for each cue, assuming the caller already placed real PNGs there (e.g. generated with a dedicated image model like Nano Banana 2). This is the **recommended path for brand-quality infographics**.
+  - `none`: agy renders a styled placeholder `<figure>` per cue (accent-bordered box with the description as caption), no `<img>`. Layout stays intact; no broken images.
 - Build the prompt:
 
   ```
@@ -758,8 +765,11 @@ Phase 2 of the `/agy:report` flow. Read source markdown + style spec, ask agy to
   - ❌ Single dominant color used flatly with no shades or accents.
   - ❌ "Lorem-ipsum"-feeling spacing where every element has the same margin.
 
-  ## Image cues
-  For each `![generate: <description>]` cue in the source markdown, invoke the native generate_image tool with the description. Save the result as `<WRITE_FILE>.assets/<slug>.png` (slug derived from the description, kebab-case, max 60 chars). Embed via `<figure>` with `<figcaption>` showing the description. If the source has ZERO cues, do not invent images.
+  ## Image cues (IMAGES mode = <IMAGES>)
+  For each `![generate: <description>]` cue in the source markdown, derive `<slug>` = description lowercased, non-alphanumeric → `-`, collapsed, trimmed to 60 chars. The assets directory is `<ASSETS_DIR>` and every `<img src>` MUST be `<ASSETS_DIR_BASENAME>/<slug>.png` (relative to the HTML). If the source has ZERO cues, do not invent images. Behave per IMAGES mode:
+  - **native**: invoke the native `generate_image` tool for each cue and save as `<ASSETS_DIR>/<slug>.png`. Request **PNG** output explicitly. Embed via `<figure>` with `<figcaption>` showing a short caption.
+  - **external**: do NOT generate any image. Only emit the `<figure><img src="<ASSETS_DIR_BASENAME>/<slug>.png" alt="..."><figcaption>...</figcaption></figure>` markup — the PNG files already exist (the caller generated them). Use the exact slug convention above so the filenames match.
+  - **none**: emit NO `<img>`. For each cue render a styled placeholder `<figure>`: an accent-bordered, tinted box (use the palette `--accent`/`--surface`) containing the cue description as `<figcaption>` text. Layout must stay intact with no broken images.
 
   ## Process
 
@@ -773,15 +783,26 @@ Phase 2 of the `/agy:report` flow. Read source markdown + style spec, ask agy to
   Do NOT print HTML or commentary to chat. The written file at <WRITE_FILE> is your only deliverable. After writing, confirm the path in one line and stop.
   ```
 
-- Invoke agy:
+- Invoke agy (note `--add-dir` includes `ASSETS_DIR` so agy can write images there in `native` mode):
   ```bash
   agy --dangerously-skip-permissions --add-dir "$(dirname "$SOURCE_FILE")" --add-dir "$(dirname "$WRITE_FILE")" --print-timeout 15m0s --print "<composed prompt>" < /dev/null
   ```
-- Output-file existence check (Windows rename mitigation). If WRITE_FILE does not exist or is empty after exit 0, retry ONCE per the standard mitigation.
+- Output-file existence check (issue #76 / Windows rename mitigation). If WRITE_FILE does not exist or is empty after exit 0, run the standard triage + retry/recovery from the "Output-file existence check" section.
+- **Assets-existence check (NEW — never ship broken images).** After the HTML exists, verify every `<img src>` it references resolves to a real non-empty file. One Bash call:
+  ```bash
+  HTML_DIR="$(dirname "<WRITE_FILE>")"; tot=0; miss=0
+  for src in $(grep -oE '<img[^>]+src="[^"]+"' "<WRITE_FILE>" | sed -E 's/.*src="([^"]+)".*/\1/'); do
+    tot=$((tot+1)); [ -s "$HTML_DIR/$src" ] || { echo "MISSING: $src"; miss=$((miss+1)); }
+  done
+  echo "IMAGES_PRESENT=$((tot-miss))/$tot"
+  ```
+  - In `native` mode: if any are MISSING, agy referenced images it failed to generate (common on 1.0.6). Report the missing list to the caller and recommend re-running with `--images external` after pre-generating the PNGs, OR `--images none`. Do NOT silently return — broken `<img>` tags are a failure.
+  - In `external` mode: MISSING means the caller has not yet placed those PNGs in `ASSETS_DIR`. Report exactly which `<slug>.png` files are expected so the caller can generate them.
 - Return to caller:
   1. Saved HTML path.
-  2. Count of generated image assets (`ls "<WRITE_FILE>.assets/" 2>/dev/null | wc -l`).
-  3. Approximate HTML size in KB.
+  2. IMAGES mode used + the `IMAGES_PRESENT=<n>/<total>` line, and the list of any missing `<slug>.png`.
+  3. The `ASSETS_DIR` absolute path (so the caller knows where to drop external images).
+  4. Approximate HTML size in KB.
 
 ### Mode: setup
 
