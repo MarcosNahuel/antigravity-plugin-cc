@@ -4,3 +4,6 @@ Thumbs.db
 .vscode/
 .idea/
 docs/agy/
+node_modules/
+progress.txt
+tasks/loop-checklist.json
