@@ -24,12 +24,13 @@ Prefer using `agy` directly if PATH resolves it — that's the cross-platform de
 Use exactly ONE `Bash` call for the agy invocation. The base command shape is:
 
 ```bash
-agy --dangerously-skip-permissions [--add-dir <CWD>] --print-timeout <TIMEOUT> [--continue] --print "<PROMPT>"
+agy --dangerously-skip-permissions [--add-dir <CWD>] --print-timeout <TIMEOUT> [--continue] --print "<PROMPT>" < /dev/null
 ```
 
 **Flag order rules (LEARNED THE HARD WAY):**
 
 - **`--print` MUST be the LAST flag before the prompt.** Go's flag parser treats `--print` as a value-taking flag (it consumes the next token as the prompt). If you put `--print` anywhere other than at the end, it will eat the next flag (e.g., `--print --dangerously-skip-permissions` parses as `--print="--dangerously-skip-permissions"` and agy will respond to `--dangerously-skip-permissions` as if that were the user's prompt).
+- **ALWAYS close stdin with `< /dev/null` (after the quoted prompt).** This is MANDATORY, not optional. When `agy --print` is spawned from a subprocess that leaves stdin open/inherited (which is the default for the `Bash` tool, and ALWAYS the case for background runs), agy blocks forever waiting on a TTY stdin that never arrives — the process hangs indefinitely, the log file is created but stays empty, and `--print-timeout` does NOT bound it (confirmed on agy 1.0.6, matches issue #76 reports from @dontcallmejames/@iwata-1116). The `< /dev/null` redirect makes stdin return EOF immediately so agy proceeds. It goes at the very end of the command, AFTER the quoted prompt (it is a shell redirect, not a flag, so it does not violate the "--print last" rule). On Windows PowerShell callers the equivalent is `$proc.StandardInput.Close()`; from the `Bash` tool (Git Bash) always use `< /dev/null`. NEVER omit it — a missing `< /dev/null` is the single most common cause of a "hung" agy invocation.
 - `--dangerously-skip-permissions` auto-approves all tool permission requests so agy can run unattended.
 - `--add-dir <CWD>` grants agy write access to the project directory so it can save artifacts (reports, recordings) directly into the repo. Use the **absolute** path of the calling CWD. Omit this flag only if no file output is needed.
 - `--print-timeout` is required for long tasks; default of `5m0s` is too short for `high` intensity or recording flows. **Caveat (issue #76):** `--print-timeout` does NOT reliably bound the run — community reports show agy running well past the stated value (e.g. `15s` requested, exited at `~41s`). Treat it as a hint, not a hard limit. Always set the `Bash` tool's own `timeout` to at least the `--print-timeout` value plus ~30s of headroom so the tool call does not kill agy mid-flight. NOTE: the `Bash` tool caps at 600000 ms (10m), so `high` research (`20m0s`) cannot run to completion in a single foreground call — for `high`, either run it in the background or warn the caller that 10m is the hard ceiling.
@@ -151,7 +152,7 @@ When this happens, agy exits 0 but the `WRITE_FILE` you instructed it to write *
 2. **Output-file existence check after exit 0, with triage.** For any mode that uses a `WRITE_FILE` (research / ask / review / scrape / doc-to-md / design-review / report-generate), after the agy call exits successfully, verify the `WRITE_FILE` exists and is non-empty. If it does not, tail the most recent `~/.gemini/antigravity-cli/log/cli-*.log` (one extra Bash call) and branch on what the log shows (see the failure-mode table above):
    - **`rename … Access is denied`** → Windows Defender race (#217). The original call lost the race to Defender. **Sleep ~2s, then retry agy ONCE with the same prompt, in the SAME Bash call** so the backoff costs no extra call budget:
      ```bash
-     sleep 2 && agy --dangerously-skip-permissions [same flags...] --print "<same prompt>"
+     sleep 2 && agy --dangerously-skip-permissions [same flags...] --print "<same prompt>" < /dev/null
      ```
      The 2s pause lets Defender finish scanning and release the `.tmp` handle, so the retry's rename usually wins. Do not retry a second time — if it still fails, the path is being held persistently: surface the permanent Defender exclusion command (top of this section) to the user and stop.
    - **`auth timed out` / `silent auth failed` / `keyringAuth: timed out`** → headless auth timeout (1.0.5). The model never ran; nothing is recoverable. Do NOT retry. Return the re-auth message from the "headless auth timeout" section above and stop.
@@ -194,6 +195,7 @@ SOURCE_FILE: <absolute path to markdown source>
 # report-generate mode adds:
 SOURCE_FILE: <absolute path to markdown source>
 STYLE_SPEC: <multiline style block: name + description + palette + vibe>
+IMAGES: native|external|none      # how ![generate: ...] cues become images (default native)
 USER_TEXT:
 <the raw user request goes here>
 ```
@@ -232,7 +234,7 @@ One-shot quick prompt. Bypasses issue #76 by writing to a temp file (no `docs/` 
 
 - Invoke agy with `--add-dir $TEMP_DIR` so it can write the temp file:
   ```bash
-  agy --dangerously-skip-permissions --add-dir "$TEMP_DIR" --print-timeout 5m0s --print "<wrapped prompt>"
+  agy --dangerously-skip-permissions --add-dir "$TEMP_DIR" --print-timeout 5m0s --print "<wrapped prompt>" < /dev/null
   ```
 - After agy returns, read `$TEMP_FILE` with the Read tool and return its content verbatim to the caller.
 - Cleanup: one final Bash call `rm -rf "$TEMP_DIR"` after reading.
@@ -274,7 +276,7 @@ Git diff code review. The slash command captures the diff into `DIFF_FILE` befor
 
 - Invoke agy:
   ```bash
-  agy --dangerously-skip-permissions --add-dir "$TEMP_DIR" --print-timeout 8m0s --print "<composed prompt>"
+  agy --dangerously-skip-permissions --add-dir "$TEMP_DIR" --print-timeout 8m0s --print "<composed prompt>" < /dev/null
   ```
 - Read `$TEMP_FILE` with the Read tool and return its content verbatim.
 - Cleanup: `rm -rf "$TEMP_DIR"` AND `rm -f "$DIFF_FILE"` (own the temp diff file — slash command handed it off).
@@ -305,6 +307,7 @@ Rules:
 - Return a TL;DR with 3-5 actionable bullets.
 - List sources at the end with title and clickable URL.
 - Do not fabricate citations. If you could not find a solid source for a claim, say so explicitly.
+- Do NOT state release dates, version numbers, parameter counts, prices, or benchmarks unless a cited source directly supports them — never infer or extrapolate a date/version, and never present a future or unreleased item as already shipped. Mark any unconfirmed specific as `[UNVERIFIED]`.
 - Output language: match the language of the topic (default: English).
 
 Output format (markdown):
@@ -329,6 +332,7 @@ Rules:
 - Triangulate when sources contradict each other.
 - Cite using [N] notation that maps to the References list at the end.
 - Mark any claim you could not verify as `[UNVERIFIED]`.
+- Do NOT state release dates, version numbers, parameter counts, prices, or benchmarks unless a cited source directly supports them — never infer or extrapolate a date/version, and never present a future or unreleased item as already shipped. Tie every hard specific to its [N] source.
 - Output language: match the language of the topic (default: English).
 
 Output format (markdown):
@@ -361,6 +365,7 @@ Rules:
 - Explicitly identify evidence gaps (what is NOT yet known).
 - Cite using [N] notation mapped to References.
 - Mark weak claims as `[WEAK EVIDENCE]`.
+- Do NOT state release dates, version numbers, parameter counts, prices, or benchmarks unless a cited source directly supports them — never infer or extrapolate a date/version, and never present a future or unreleased item as already shipped. Tie every hard specific to its [N] source; mark the rest `[UNVERIFIED]`.
 - Output language: match the language of the topic (default: English).
 
 Output format (markdown):
@@ -683,17 +688,23 @@ Phase 1 of the `/agy:report` flow. Read the source markdown and match it against
 
 - Invoke agy with `--add-dir` for both the source dir and temp dir:
   ```bash
-  agy --dangerously-skip-permissions --add-dir "$(dirname "$SOURCE_FILE")" --add-dir "$TEMP_DIR" --print-timeout 3m0s --print "<wrapped prompt>"
+  agy --dangerously-skip-permissions --add-dir "$(dirname "$SOURCE_FILE")" --add-dir "$TEMP_DIR" --print-timeout 3m0s --print "<wrapped prompt>" < /dev/null
   ```
 - After agy returns: apply the standard output-file existence check (see Known issue — Windows rename). If the JSON file exists, read it with the Read tool and return its content verbatim to the caller (caller will parse to drive Phase 3 AskUserQuestion).
 - Cleanup: `rm -rf "$TEMP_DIR"`.
 
 ### Mode: report-generate
 
-Phase 2 of the `/agy:report` flow. Read source markdown + style spec, ask agy to generate self-contained HTML with Imagen-generated images for `![generate: ...]` cues, write to WRITE_FILE.
+Phase 2 of the `/agy:report` flow. Read source markdown + style spec, ask agy to generate self-contained branded HTML, handling `![generate: ...]` image cues per the `IMAGES` mode (native generation / external pre-generated / placeholder), write to WRITE_FILE, then verify referenced images exist.
 
 - Default timeout: `15m0s` (image generation + HTML composition is expensive).
-- Pre-check: the caller passes `WRITE_FILE` (absolute path under `docs/agy/reports/`) and `SOURCE_FILE` (absolute path to markdown). The parent dir of WRITE_FILE must already exist (the slash command created it).
+- Pre-check: the caller passes `WRITE_FILE` (absolute path under `docs/agy/reports/`), `SOURCE_FILE` (absolute path to markdown), and `IMAGES` (`native` | `external` | `none`, default `native`). The parent dir of WRITE_FILE must already exist (the slash command created it).
+- **Compute `ASSETS_DIR`** = `WRITE_FILE` with the trailing `.html` replaced by `.assets` (e.g. `.../2026-06-06-x.html` → `.../2026-06-06-x.assets`). This is the canonical assets path — the `<img src>` in the HTML must reference it **relative to the HTML** (i.e. `<basename>.assets/<slug>.png`). Do NOT use `<WRITE_FILE>.assets` (that would append `.assets` after `.html`). Create it with one Bash call before invoking agy: `mkdir -p "<ASSETS_DIR>"`.
+- **Slug convention (deterministic, shared with `external` mode):** for each `![generate: <description>]` cue, `slug` = description lowercased, non-alphanumeric → `-`, collapsed, trimmed to 60 chars; filename = `<slug>.png`. This MUST match exactly between what agy writes (`native`) and what a caller pre-generates (`external`).
+- **IMAGES mode** controls how cues become images (see the Image cues section of the prompt below):
+  - `native` (default): agy generates each image itself via its `generate_image` tool. Works without external deps but quality/format is inconsistent in headless mode (agy 1.0.6 sometimes emits JPEG bytes with a `.png` name, or skips generation entirely — the post-generation check below catches this).
+  - `external`: agy does NOT generate images. It references `<basename>.assets/<slug>.png` for each cue, assuming the caller already placed real PNGs there (e.g. generated with a dedicated image model like Nano Banana 2). This is the **recommended path for brand-quality infographics**.
+  - `none`: agy renders a styled placeholder `<figure>` per cue (accent-bordered box with the description as caption), no `<img>`. Layout stays intact; no broken images.
 - Build the prompt:
 
   ```
@@ -757,8 +768,11 @@ Phase 2 of the `/agy:report` flow. Read source markdown + style spec, ask agy to
   - ❌ Single dominant color used flatly with no shades or accents.
   - ❌ "Lorem-ipsum"-feeling spacing where every element has the same margin.
 
-  ## Image cues
-  For each `![generate: <description>]` cue in the source markdown, invoke the native generate_image tool with the description. Save the result as `<WRITE_FILE>.assets/<slug>.png` (slug derived from the description, kebab-case, max 60 chars). Embed via `<figure>` with `<figcaption>` showing the description. If the source has ZERO cues, do not invent images.
+  ## Image cues (IMAGES mode = <IMAGES>)
+  For each `![generate: <description>]` cue in the source markdown, derive `<slug>` = description lowercased, non-alphanumeric → `-`, collapsed, trimmed to 60 chars. The assets directory is `<ASSETS_DIR>` and every `<img src>` MUST be `<ASSETS_DIR_BASENAME>/<slug>.png` (relative to the HTML). If the source has ZERO cues, do not invent images. Behave per IMAGES mode:
+  - **native**: invoke the native `generate_image` tool for each cue and save as `<ASSETS_DIR>/<slug>.png`. Request **PNG** output explicitly. Embed via `<figure>` with `<figcaption>` showing a short caption.
+  - **external**: do NOT generate any image. Only emit the `<figure><img src="<ASSETS_DIR_BASENAME>/<slug>.png" alt="..."><figcaption>...</figcaption></figure>` markup — the PNG files already exist (the caller generated them). Use the exact slug convention above so the filenames match.
+  - **none**: emit NO `<img>`. For each cue render a styled placeholder `<figure>`: an accent-bordered, tinted box (use the palette `--accent`/`--surface`) containing the cue description as `<figcaption>` text. Layout must stay intact with no broken images.
 
   ## Process
 
@@ -772,22 +786,33 @@ Phase 2 of the `/agy:report` flow. Read source markdown + style spec, ask agy to
   Do NOT print HTML or commentary to chat. The written file at <WRITE_FILE> is your only deliverable. After writing, confirm the path in one line and stop.
   ```
 
-- Invoke agy:
+- Invoke agy (`--add-dir` covers the reports dir, which contains `ASSETS_DIR`, so agy can write images there in `native` mode):
   ```bash
-  agy --dangerously-skip-permissions --add-dir "$(dirname "$SOURCE_FILE")" --add-dir "$(dirname "$WRITE_FILE")" --print-timeout 15m0s --print "<composed prompt>"
+  agy --dangerously-skip-permissions --add-dir "$(dirname "$SOURCE_FILE")" --add-dir "$(dirname "$WRITE_FILE")" --print-timeout 15m0s --print "<composed prompt>" < /dev/null
   ```
-- Output-file existence check (Windows rename mitigation). If WRITE_FILE does not exist or is empty after exit 0, retry ONCE per the standard mitigation.
+- Output-file existence check (issue #76 / Windows rename mitigation). If WRITE_FILE does not exist or is empty after exit 0, run the standard triage + retry/recovery from the "Output-file existence check" section.
+- **Assets-existence check (NEW — never ship broken images).** After the HTML exists, verify every `<img src>` it references resolves to a real non-empty file. One Bash call:
+  ```bash
+  HTML_DIR="$(dirname "<WRITE_FILE>")"; tot=0; miss=0
+  for src in $(grep -oE '<img[^>]+src="[^"]+"' "<WRITE_FILE>" | sed -E 's/.*src="([^"]+)".*/\1/'); do
+    tot=$((tot+1)); [ -s "$HTML_DIR/$src" ] || { echo "MISSING: $src"; miss=$((miss+1)); }
+  done
+  echo "IMAGES_PRESENT=$((tot-miss))/$tot"
+  ```
+  - In `native` mode: if any are MISSING, agy referenced images it failed to generate (common on 1.0.6). Report the missing list to the caller and recommend re-running with `--images external` after pre-generating the PNGs, OR `--images none`. Do NOT silently return — broken `<img>` tags are a failure.
+  - In `external` mode: MISSING means the caller has not yet placed those PNGs in `ASSETS_DIR`. Report exactly which `<slug>.png` files are expected so the caller can generate them.
 - Return to caller:
   1. Saved HTML path.
-  2. Count of generated image assets (`ls "<WRITE_FILE>.assets/" 2>/dev/null | wc -l`).
-  3. Approximate HTML size in KB.
+  2. IMAGES mode used + the `IMAGES_PRESENT=<n>/<total>` line, and the list of any missing `<slug>.png`.
+  3. The `ASSETS_DIR` absolute path (so the caller knows where to drop external images).
+  4. Approximate HTML size in KB.
 
 ### Mode: setup
 
 - Run a minimal ping. Phrase it so agy does NOT trigger agentic tool calls (ListDir, Search, ReadFile) that would consume the timeout before printing anything:
 
   ```bash
-  agy --dangerously-skip-permissions --print-timeout 60s --print "Reply with the single word: pong. Do not use any tools. Do not search anything. Do not read any files. Output the literal text 'pong' and nothing else."
+  agy --dangerously-skip-permissions --print-timeout 60s --print "Reply with the single word: pong. Do not use any tools. Do not search anything. Do not read any files. Output the literal text 'pong' and nothing else." < /dev/null
   ```
 
 - Report: binary path, version (from `agy changelog | head -n 1` if available), and whether the ping returned `pong` within the timeout.
