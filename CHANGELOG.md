@@ -4,6 +4,20 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] — 2026-06-07
+
+Patch release from a full end-to-end test pass of all 10 commands on agy 1.0.6. All commands verified working (research, report, ask, review, rescue, record, scrape, doc-to-md, design-review, setup — `review` correctly flagged two seeded bugs in a test diff). One real bug found and fixed.
+
+### Fixed
+
+- **Transcript recovery resolved the conversation id unreliably.** The v0.6.1/0.6.2 recovery (issue #76 Plan B) looked up the conversation id in `cache/last_conversations.json[cwd]` first — but that file is written with a delay and, on agy 1.0.6, frequently does NOT contain an entry for the invoking cwd at all, so an immediate post-exit recovery returned empty (the response was on disk the whole time). Recovery now resolves the id from the **cli log** (`Print mode: conversation=<cid>`, written immediately) first, then the most-recently-modified `brain/<cid>` dir, and only falls back to `last_conversations.json[cwd]` last. Verified: log-based recovery returns the response immediately where the cwd lookup returned empty.
+
+### Notes
+
+- No behavior change to any command's happy path — this only hardens the fallback that fires when `agy --print` drops stdout (still the common case on 1.0.6).
+
+[0.6.3]: https://github.com/MarcosNahuel/antigravity-plugin-cc/releases/tag/v0.6.3
+
 ## [0.6.2] — 2026-06-07
 
 Reliability + distribution release: fixes the agy stdin-hang, makes the `/agy:report` infographics pipeline dependable, hardens research against forward-dating, and ships the plugin to npm. Driven by hands-on end-to-end testing on agy 1.0.6.
