@@ -23,9 +23,9 @@ $ARGUMENTS
 - If the source path is empty, ask once: "Which markdown file should agy turn into a report?"
 - Resolve the source path against the current working directory if relative. If it doesn't exist or isn't readable, stop without invoking the subagent.
 - Compute default output if `--output` omitted:
-  - `slug` = source filename minus extension, lowercased, non-alphanumeric → `-`, collapsed, trimmed 60 chars.
+  - `output-slug` = source filename minus extension, lowercased, non-alphanumeric → `-`, collapsed, trimmed 60 chars. (Distinct from the per-image `<slug>` used for `![generate:]` cues below.)
   - `date` = today YYYY-MM-DD.
-  - `output` = `docs/agy/reports/<date>-<slug>.html` relative to CWD.
+  - `output` = `docs/agy/reports/<date>-<output-slug>.html` relative to CWD.
 - Ensure output dir exists:
   ```bash
   mkdir -p docs/agy/reports

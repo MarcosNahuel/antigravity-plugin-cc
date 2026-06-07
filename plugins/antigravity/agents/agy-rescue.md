@@ -786,7 +786,7 @@ Phase 2 of the `/agy:report` flow. Read source markdown + style spec, ask agy to
   Do NOT print HTML or commentary to chat. The written file at <WRITE_FILE> is your only deliverable. After writing, confirm the path in one line and stop.
   ```
 
-- Invoke agy (note `--add-dir` includes `ASSETS_DIR` so agy can write images there in `native` mode):
+- Invoke agy (`--add-dir` covers the reports dir, which contains `ASSETS_DIR`, so agy can write images there in `native` mode):
   ```bash
   agy --dangerously-skip-permissions --add-dir "$(dirname "$SOURCE_FILE")" --add-dir "$(dirname "$WRITE_FILE")" --print-timeout 15m0s --print "<composed prompt>" < /dev/null
   ```

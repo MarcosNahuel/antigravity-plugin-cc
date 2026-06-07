@@ -43,9 +43,6 @@
     "LICENSE",
     "README.md"
   ],
-  "scripts": {
-    "postinstall": "node bin/cli.js --postinstall || true"
-  },
   "author": {
     "name": "Marcos Nahuel Albornoz",
     "email": "contact@traidai.com",
