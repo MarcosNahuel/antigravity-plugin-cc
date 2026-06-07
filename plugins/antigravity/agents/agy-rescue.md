@@ -54,14 +54,23 @@ When `agy --print` exits 0 but produced no stdout AND no expected output file, t
 
 ```bash
 GROOT="$HOME/.gemini/antigravity-cli"
-# last_conversations.json keys by the cwd that invoked agy → conversation id
-CID=$(python - "$PWD" <<'PY' 2>/dev/null
+# Resolve the conversation id ROBUSTLY. Order matters:
+#  1) the cli log — `Print mode: conversation=<cid>` is written immediately and is
+#     the most reliable source. (DO NOT rely on last_conversations.json first: it is
+#     written with a delay and may not even contain the invoking cwd key — verified
+#     on agy 1.0.6.)
+LOG=$(ls -t "$GROOT/log/"cli-*.log 2>/dev/null | head -1)
+CID=$(grep -oE 'conversation=[0-9a-f-]{36}' "$LOG" 2>/dev/null | tail -1 | cut -d= -f2)
+#  2) fallback: the most-recently-modified brain/<cid> directory.
+[ -z "$CID" ] && CID=$(ls -t "$GROOT/brain/" 2>/dev/null | head -1)
+#  3) last fallback: last_conversations.json keyed by cwd (may lag a few seconds).
+[ -z "$CID" ] && CID=$(python - "$PWD" <<'PY' 2>/dev/null
 import json, sys, os
-cwd = sys.argv[1]
 p = os.path.expanduser("~/.gemini/antigravity-cli/cache/last_conversations.json")
-d = json.load(open(p, encoding="utf-8"))
-# match the invoking cwd (exact, else the single most-recent entry)
-print(d.get(cwd) or d.get(os.path.normpath(cwd)) or (list(d.values())[-1] if len(d)==1 else ""))
+try: d = json.load(open(p, encoding="utf-8"))
+except Exception: d = {}
+cwd = sys.argv[1]
+print(d.get(cwd) or d.get(os.path.normpath(cwd)) or "")
 PY
 )
 TX="$GROOT/brain/$CID/.system_generated/logs/transcript.jsonl"
@@ -83,7 +92,7 @@ PY
 If `python` is unavailable, fall back to reading `cache/last_conversations.json` and the transcript with the Read tool and extracting the last `PLANNER_RESPONSE.content` manually.
 
 **Caveats (from the #76 thread):**
-- `last_conversations.json` keys by **cwd**, and agy does not emit a stable run id, so this is **fragile under concurrent agy runs from the same cwd** — the most recent conversation for that cwd wins. For single-user, one-call-at-a-time usage (this plugin's normal case) it is reliable.
+- The conversation id comes from the **cli log first** (`conversation=<cid>` — immediate and reliable), then the most-recent `brain/` dir, then `last_conversations.json[cwd]` as a last resort. `last_conversations.json` is written with a delay and may omit the invoking cwd entirely (verified on agy 1.0.6), which is why it is NOT the primary source. agy emits no stable per-run id on stdout, so under **true concurrent** agy runs the "latest log" heuristic can still pick the wrong run — keep recovery to one-call-at-a-time (the plugin's normal mode).
 - The transcript has **no token-usage metadata** (`input_tokens` / `output_tokens` are absent), so do not try to report usage from it.
 - This recovers content only when generation actually happened (a `text_drip.go: Drip stopped: length=N` line exists in the log). If generation never ran — see the auth-timeout failure mode below — the transcript will not contain the answer.
 

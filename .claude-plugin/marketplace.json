@@ -7,7 +7,7 @@
   },
   "metadata": {
     "description": "Antigravity plugin for Claude Code (agy / Gemini 3.x): branded HTML report generation via the TRAID Design System (5 templates), deep web research with citations, one-shot prompts, git-diff code review, code/task rescue, browser walkthrough recording, structured web scraping, document-to-markdown conversion, and visual/UX design review. Ten slash commands, a thin Bash forwarder, no Node.js runtime. The modern successor to gemini-plugin-cc.",
-    "version": "0.6.2",
+    "version": "0.6.3",
     "homepage": "https://github.com/MarcosNahuel/antigravity-plugin-cc",
     "keywords": [
       "claude-code",
@@ -28,7 +28,7 @@
     {
       "name": "antigravity",
       "description": "Ten slash commands wrapping Google Antigravity CLI (agy): /agy:report (branded HTML from markdown via 5 TRAID Design System templates, docs/agy/reports/), /agy:ask (one-shot quick prompt), /agy:review (git-diff code review), /agy:research (deep web research with citations, docs/agy/research/), /agy:rescue (code/diagnosis task delegation), /agy:record (browser walkthrough recording — .webm + optional MP4 via ffmpeg), /agy:scrape (structured data extraction from URL — markdown or JSON), /agy:doc-to-md (PDF/docx/image to clean Markdown via multimodal Gemini), /agy:design-review (UX/visual audit with desktop+mobile screenshots and 10-dimension scoring), /agy:setup (health check). /agy:report supports --images native|external|none for reliable infographics (pre-generate with Nano Banana 2 for brand quality). Includes full issue-#76 handling (write_file workaround + transcript.jsonl recovery + headless auth-timeout detection + stdin-hang fix) and Windows rename-bug (#217) mitigation. Thin Bash forwarder, no runtime dependencies.",
-      "version": "0.6.2",
+      "version": "0.6.3",
       "author": {
         "name": "Marcos Nahuel Albornoz",
         "url": "https://github.com/MarcosNahuel"
