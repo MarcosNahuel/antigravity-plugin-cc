@@ -4,6 +4,32 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] — 2026-06-07
+
+Reliability + distribution release: fixes the agy stdin-hang, makes the `/agy:report` infographics pipeline dependable, hardens research against forward-dating, and ships the plugin to npm. Driven by hands-on end-to-end testing on agy 1.0.6.
+
+### Fixed
+
+- **agy `--print` stdin-hang in subprocess/background contexts.** When stdin is inherited/open (the default for any subprocess, and always for background runs), `agy --print` blocks forever waiting on a TTY — the log file is created but stays empty and `--print-timeout` does NOT bound it. Confirmed on agy 1.0.6; matches reports from @dontcallmejames / @iwata-1116 on upstream issue #76. **Fix:** every `agy --print` invocation in the `agy-rescue` subagent now closes stdin with `< /dev/null` (PowerShell equivalent `$proc.StandardInput.Close()`), and the rule is documented prominently in the invocation contract. Without this, the v0.6.1 transcript recovery couldn't help — agy never ran.
+- **`/agy:report` referenced images it never created (broken `<img>`).** agy's native `generate_image` is unreliable in headless mode (emits JPEG bytes under a `.png` name, or skips generation), and the assets path was inconsistent (`<WRITE_FILE>.assets` vs the `.assets` dir agy actually used). Standardized `ASSETS_DIR` (output with `.html` → `.assets`) and a deterministic slug, and added an **assets-existence check** after generation that verifies every `<img src>` resolves to a real file and reports any missing slugs instead of silently shipping broken images.
+- **Research forward-dating / overstated specifics.** agy web research asserted unconfirmed hard facts (e.g. release dates, version numbers, parameter counts) unprompted. Added an anti-forward-dating rule to all three research intensity templates: never state dates/versions/specs unless a cited source supports them; never present unreleased items as shipped; mark the rest `[UNVERIFIED]`.
+
+### Added
+
+- **`/agy:report --images native|external|none`** — controls how `![generate: ...]` cues become images:
+  - `native` (default): agy generates them (zero setup, flaky quality; missing ones now reported).
+  - `external` (**recommended for brand-grade infographics**): pre-generate the PNGs with a dedicated image model — e.g. **Nano Banana 2** (`gemini_image_generation`, `gemini-3.1-flash-image-preview`) — into the assets dir using the slug convention; agy just references them. Deterministic, real PNGs, full brand control.
+  - `none`: styled placeholder figures, never broken images.
+- **npm distribution.** The plugin is now publishable to npm as [`antigravity-plugin-cc`](https://www.npmjs.com/package/antigravity-plugin-cc) with a `package.json` (files allowlist) and a `bin` helper — `npx antigravity-plugin-cc` prints the Claude Code install commands. The plugin is markdown+JSON with no runtime, so npm is a versioned discovery/mirror channel; the canonical install remains the git marketplace.
+
+### Notes
+
+- The intended document workflow is now first-class: **you write a clean source `.md` with `![generate: <description>]` cues, run `/agy:report` (with `--images external` for polished infographics), and agy turns it into a branded HTML document.**
+- The upstream empty-stdout bug (#76) is still unfixed as of agy 1.0.6 — these remain wrapper-side mitigations, not a fix.
+- Rendering tip: opening report HTML via `file://` can block local `<img>` loading; serve the folder with `python -m http.server` and open over `http://`.
+
+[0.6.2]: https://github.com/MarcosNahuel/antigravity-plugin-cc/releases/tag/v0.6.2
+
 ## [0.6.1] — 2026-06-06
 
 Reliability release: full recovery path for the upstream empty-stdout bug (issue #76), driven by community findings on the upstream issue thread (confirmed through agy 1.0.5).

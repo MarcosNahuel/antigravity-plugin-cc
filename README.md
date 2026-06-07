@@ -28,7 +28,7 @@
 
 - **Antigravity CLI** (`agy`) is Google's official agentic command-line assistant — released at Google I/O 2026 as the successor to `gemini-cli`. Rewritten in Go for speed, with native web-search grounding built into Gemini 3.x and **multi-provider model support** (Gemini, Claude, GPT-OSS).
 - **Claude Code** is Anthropic's CLI for AI-assisted software engineering.
-- This plugin **bridges the two**: from inside Claude Code, you invoke `/agy:research`, `/agy:rescue`, `/agy:record`, `/agy:scrape`, `/agy:doc-to-md`, `/agy:design-review`, or `/agy:setup` and the request gets handed to `agy --print` via a thin Bash forwarder.
+- This plugin **bridges the two**: from inside Claude Code, you invoke `/agy:research`, `/agy:report`, `/agy:ask`, `/agy:review`, `/agy:rescue`, `/agy:record`, `/agy:scrape`, `/agy:doc-to-md`, `/agy:design-review`, or `/agy:setup` and the request gets handed to `agy --print` via a thin Bash forwarder.
 
 The killer use case is **deep web research with citations** — Claude reasons over your repo, `agy` reasons over the live web. Each tool does what it's best at.
 
@@ -51,6 +51,9 @@ The killer use case is **deep web research with citations** — Claude reasons o
 | Command | What it does |
 |---|---|
 | `/agy:research <topic> [--intensity low\|medium\|high]` | **Deep web research.** Saves to `docs/agy/research/YYYY-MM-DD-<slug>.md`. Default: `medium`. |
+| `/agy:report <markdown> [--template <id>] [--images native\|external\|none]` | **Branded HTML document from a markdown source** using the TRAID Design System (5 templates) — turns your `.md` (with `![generate: ...]` cues) into a publication-grade page with infographics. Saves to `docs/agy/reports/`. See [Infographics](#documents-with-infographics--agyreport). |
+| `/agy:ask <prompt>` | **One-shot quick prompt** to agy; returns the answer verbatim, no file persistence. |
+| `/agy:review [focus]` | **Code review** of the current `git diff` with optional focus. |
 | `/agy:rescue [--resume\|--fresh] <task>` | **Delegate** a coding, debugging, or implementation task to `agy` and return its output verbatim. |
 | `/agy:record <url> [steps in natural language]` | **Browser walkthrough recording.** Drives an isolated Chrome via agy's browser subagent, produces `.webm` + screenshots + report, optional MP4 conversion if ffmpeg is on PATH. Saves to `docs/agy/recordings/`. No audio. |
 | `/agy:scrape <url> [schema] [--json]` | **Structured data extraction** from a single URL. Output as markdown table (default) or JSON. Saves to `docs/agy/scrapes/`. For one-off extractions, not production pipelines. |
@@ -105,6 +108,8 @@ From inside Claude Code:
 /plugin install antigravity@marcosnahuel-antigravity
 ```
 
+> **Also on npm** (discovery / versioning): [`antigravity-plugin-cc`](https://www.npmjs.com/package/antigravity-plugin-cc). Run `npx antigravity-plugin-cc` to print these install commands. Note the plugin is markdown + JSON with no runtime — Claude Code installs it from the marketplace above, so npm is a mirror, not the install path.
+
 ### 3. Verify
 
 ```
@@ -141,6 +146,26 @@ You should see the binary path, version, and a `pong` from a 30-second test ping
 
 → 15+ primary sources · comparative tables · counterarguments · evidence gaps · confidence-rated conclusion. ~20 minutes.
 
+## Documents with infographics — `/agy:report`
+
+The flagship document workflow: **you (or Claude) write a clean source `.md`, agy turns it into a branded, publication-grade HTML document with infographics.** Drop `![generate: <description>]` cues in the markdown wherever you want a generated visual.
+
+```
+/agy:report docs/specs/traid-pitch.md --template traid-dark --images external
+```
+
+How images are produced is controlled by `--images`:
+
+| Mode | Behavior | Use when |
+|---|---|---|
+| `native` (default) | agy generates each image itself | quick drafts; zero setup (quality is inconsistent in headless agy — missing images are reported, never shipped silently) |
+| `external` | you pre-generate the PNGs (e.g. **Nano Banana 2** / `gemini-3.1-flash-image-preview`) into the `.assets/` dir; agy references them | **client / brand-grade infographics** — deterministic, real PNGs, full control |
+| `none` | styled placeholder boxes instead of images | text-first docs, or art added later |
+
+Recommended pipeline for polished output: write the `.md` → pre-generate the infographics with your image model into `<output>.assets/<slug>.png` (slug = description kebab-cased) → run `/agy:report ... --images external`. After generation the plugin verifies every `<img>` resolves to a real file and reports any missing.
+
+> Tip: opening the result via `file://` can block local image loading in some browsers — serve with `python -m http.server` and open over `http://`.
+
 ### Code rescue / task delegation
 
 ```
@@ -166,7 +191,7 @@ You → Claude Code → /agy:research <topic>
                         ↓
           antigravity:agy-rescue subagent
                         ↓
-          Bash → agy --print --print-timeout <N> "<wrapped-prompt>"
+          Bash → agy --print --print-timeout <N> "<wrapped-prompt>" < /dev/null
                         ↓
           stdout → Write → docs/agy/research/YYYY-MM-DD-<slug>.md
                         ↓
@@ -192,19 +217,26 @@ This is intentionally simpler than [`abiswas97/gemini-plugin-cc`](https://github
 │       ├── agents/
 │       │   └── agy-rescue.md       # thin forwarder subagent
 │       ├── commands/
+│       │   ├── ask.md              # /agy:ask
 │       │   ├── design-review.md    # /agy:design-review
 │       │   ├── doc-to-md.md        # /agy:doc-to-md
 │       │   ├── record.md           # /agy:record
+│       │   ├── report.md           # /agy:report
 │       │   ├── rescue.md           # /agy:rescue
 │       │   ├── research.md         # /agy:research
+│       │   ├── review.md           # /agy:review
 │       │   ├── scrape.md           # /agy:scrape
 │       │   └── setup.md            # /agy:setup
 │       └── skills/
 │           └── agy-prompting/
 │               └── SKILL.md        # prompting tips for Gemini 3.x
+├── bin/
+│   └── cli.js                      # npx install helper
+├── package.json                    # npm package (files allowlist + bin)
 ├── llms.txt                        # LLM-friendly index (GEO)
 ├── CITATION.cff                    # citation metadata
 ├── LICENSE                         # MIT
+├── CHANGELOG.md                    # version history
 └── README.md
 ```
 
