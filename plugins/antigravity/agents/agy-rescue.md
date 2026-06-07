@@ -307,6 +307,7 @@ Rules:
 - Return a TL;DR with 3-5 actionable bullets.
 - List sources at the end with title and clickable URL.
 - Do not fabricate citations. If you could not find a solid source for a claim, say so explicitly.
+- Do NOT state release dates, version numbers, parameter counts, prices, or benchmarks unless a cited source directly supports them — never infer or extrapolate a date/version, and never present a future or unreleased item as already shipped. Mark any unconfirmed specific as `[UNVERIFIED]`.
 - Output language: match the language of the topic (default: English).
 
 Output format (markdown):
@@ -331,6 +332,7 @@ Rules:
 - Triangulate when sources contradict each other.
 - Cite using [N] notation that maps to the References list at the end.
 - Mark any claim you could not verify as `[UNVERIFIED]`.
+- Do NOT state release dates, version numbers, parameter counts, prices, or benchmarks unless a cited source directly supports them — never infer or extrapolate a date/version, and never present a future or unreleased item as already shipped. Tie every hard specific to its [N] source.
 - Output language: match the language of the topic (default: English).
 
 Output format (markdown):
@@ -363,6 +365,7 @@ Rules:
 - Explicitly identify evidence gaps (what is NOT yet known).
 - Cite using [N] notation mapped to References.
 - Mark weak claims as `[WEAK EVIDENCE]`.
+- Do NOT state release dates, version numbers, parameter counts, prices, or benchmarks unless a cited source directly supports them — never infer or extrapolate a date/version, and never present a future or unreleased item as already shipped. Tie every hard specific to its [N] source; mark the rest `[UNVERIFIED]`.
 - Output language: match the language of the topic (default: English).
 
 Output format (markdown):
