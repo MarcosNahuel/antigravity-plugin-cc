@@ -174,7 +174,7 @@ When this happens, agy exits 0 but the `WRITE_FILE` you instructed it to write *
 The slash command passes you a header block followed by the user's text:
 
 ```
-MODE: rescue|research|setup|record|scrape|doc-to-md|design-review|ask|review|report-analyze|report-generate|notebook|notebook-index|notebook-ask|notebook-group
+MODE: rescue|research|setup|record|scrape|doc-to-md|design-review|ask|review|report-analyze|report-generate|notebook|notebook-index|notebook-ask|notebook-group|transcribe|media
 INTENSITY: low|medium|high          # only for research
 MODEL:                              # reserved for forward compat — agy 1.0.x ignores model overrides
 RESUME: true|false                  # add --continue if true
@@ -223,6 +223,16 @@ PREGUNTA: <the user's question>
 # notebook-group mode adds (summarise a batch of one-page docs in one call):
 MEMBER_FILES: <pipe-joined member .txt paths>
 MEMBER_NAMES: <pipe-joined member display names>
+# transcribe mode adds (audio/video/URL -> transcript + summary):
+KIND: audio|video|url
+SOURCE: <file path or URL>
+ADD_DIR: <dir of the source file, or empty for a URL>
+FOCUS: <focus text or empty>
+# media mode adds (Q&A over audio/video/image/URL):
+KIND: audio|video|image|url|file
+SOURCE: <file path or URL>
+ADD_DIR: <dir of the source file, or empty for a URL>
+PREGUNTA: <the question>
 USER_TEXT:
 <the raw user request goes here>
 ```
@@ -718,6 +728,59 @@ agy call — `/agy:notebook` groups these to save calls/quota instead of one cal
 - After agy returns, verify `WRITE_FILE` exists and is non-empty (same WRITE_FILE check / recovery).
   Return its path to the caller.
 
+### Mode: transcribe
+
+Audio/video (file or YouTube/remote URL) -> faithful transcript + summary. Gemini is natively
+multimodal in audio/video; Claude Code is not, so this offloads a capability Claude lacks.
+
+- Timeout: `6m0s` for audio, `12m0s` for video/url (longer media take longer).
+- File pass `--add-dir <ADD_DIR>` (to read the source) **and** `--add-dir <CWD>` (to write). For a
+  URL there is no local file, so pass only `--add-dir <CWD>`.
+- Prompt template:
+
+  ```
+  Audio/video transcription + summary task.
+
+  Source (<KIND>): <SOURCE>
+  Focus / what to emphasize: <FOCUS or "faithful full transcript">
+
+  Listen to / watch the source. Transcribe it COMPLETELY and faithfully in its ORIGINAL language
+  (do not translate). Mark unclear parts [inaudible]. For <KIND> = video or url, prefix natural
+  segments with timestamps (mm:ss). Then add a short summary in the same language.
+
+  Write the result to this ABSOLUTE path: <WRITE_FILE>, with sections:
+  ## Transcripción   (timestamps for video/url)
+  ## Resumen         (2-5 lines; key points / decisions / action items per FOCUS)
+
+  Do NOT invent. OUTPUT REQUIREMENT (CRITICAL): Do NOT print to chat. The written file is your only deliverable.
+  ```
+
+- After agy returns, verify `WRITE_FILE` exists and is non-empty (same check / recovery). Return its path.
+
+### Mode: media
+
+Multimodal Q&A over an audio/video/image (file or URL) — beyond transcription.
+
+- Timeout: `6m0s` for audio/image, `12m0s` for video/url.
+- Same `--add-dir` logic as transcribe (source dir + CWD for files; CWD only for URLs).
+- Prompt template:
+
+  ```
+  Multimodal question-answering task. Output language: Spanish (es-AR), unless the source/question is in another language.
+
+  Source (<KIND>): <SOURCE>
+  Pregunta: <PREGUNTA>
+
+  Listen to / watch / look at the source. Answer the pregunta using ONLY what you actually heard or
+  saw. For audio/video, cite time references (e.g. "alrededor de 02:30") where relevant. If the
+  source doesn't contain enough to answer, say so explicitly — do not invent.
+
+  Write the answer to this ABSOLUTE path: <WRITE_FILE>.
+  OUTPUT REQUIREMENT (CRITICAL): Do NOT print to chat. The written file is your only deliverable.
+  ```
+
+- After agy returns, verify `WRITE_FILE` exists and is non-empty (same check / recovery). Return its path.
+
 ### Mode: design-review
 
 UX/visual audit using browser subagent + multimodal vision.
@@ -1026,7 +1089,7 @@ cat "$OUT" 2>/dev/null
 
 ## Safety rules
 
-- One `Bash` call for the main `agy` invocation per attempt (mode `research`/`ask`/`review`/`scrape`/`doc-to-md`/`design-review`/`report-generate`/`notebook`/`notebook-index`/`notebook-ask`/`notebook-group` may retry once if the WRITE_FILE check detects the Windows rename bug — a second `Bash` call to agy is allowed only on retry, not for branching logic).
+- One `Bash` call for the main `agy` invocation per attempt (mode `research`/`ask`/`review`/`scrape`/`doc-to-md`/`design-review`/`report-generate`/`notebook`/`notebook-index`/`notebook-ask`/`notebook-group`/`transcribe`/`media` may retry once if the WRITE_FILE check detects the Windows rename bug — a second `Bash` call to agy is allowed only on retry, not for branching logic).
 - The pre-flight `.tmp` sweep adds one Bash call before agy in every mode. The output-file check adds one Bash call after agy (test -s + optional log tail) in modes with WRITE_FILE.
 - **Response recovery is allowed when output is missing/empty** (issue #76): one Bash call to tail the log for triage, and one Bash call to run the transcript Plan B recovery. These are recovery calls, not exploration — only run them when stdout is empty or the WRITE_FILE check failed, never speculatively. `rescue` mode (no WRITE_FILE) may use these same two recovery calls when stdout comes back empty.
 - Mode `record` and `research` may use one additional `Bash` call for post-processing (file moves, ffmpeg) and one `Write` call to prepend frontmatter or append a hint. Mode `setup` may use one additional `Bash` call for the version/log check. Mode `ask` may use one Bash call before agy (mktemp) and one after (rm). Mode `review` may use one Bash call before (size check on DIFF_FILE + mktemp) and one after (rm of both temp dirs). Mode `report-generate` may use one Bash call for output dir setup and one after for image asset moves.

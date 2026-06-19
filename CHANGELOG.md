@@ -4,6 +4,21 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] — 2026-06-19
+
+Audio & video — capabilities Claude Code does not have natively, offloaded to Gemini via `agy`.
+
+### Added
+
+- **`/agy:transcribe <audio|video|YouTube-URL> [focus]`** — faithful transcript + summary of an
+  audio or video file (or a YouTube/remote URL), in the source language. Voice notes, meetings,
+  calls, screencasts. Video/URLs get timestamps. Saves to `docs/agy/transcripts/`. Verified on a
+  real WhatsApp `.ogg` voice note and a YouTube video (content + timestamps).
+- **`/agy:media <file|URL> | <question>`** — multimodal Q&A over an audio/video/image (or URL):
+  "what decisions were made?", "what happens at 2:30?", "what's the tone?" — grounded in what agy
+  heard/saw, with time references. Saves to `docs/agy/media/`.
+- New `agy-rescue` modes `transcribe` and `media`. 15 commands total.
+
 ## [0.6.9] — 2026-06-19
 
 ### Added

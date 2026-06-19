@@ -7,6 +7,7 @@
 [![Antigravity CLI](https://img.shields.io/badge/Google-Antigravity%20CLI-4285F4)](https://antigravity.google)
 [![Made with agy](https://img.shields.io/badge/Made%20with-agy-34a853)](https://github.com/MarcosNahuel/antigravity-plugin-cc)
 [![Gemini CLI Deprecation: 18 Jun 2026](https://img.shields.io/badge/Gemini%20CLI-deprecated%2018%20Jun%202026-red)](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/)
+[![Release](https://img.shields.io/github/v/release/MarcosNahuel/antigravity-plugin-cc?color=2ea44f&label=release)](https://github.com/MarcosNahuel/antigravity-plugin-cc/releases) [![Stars](https://img.shields.io/github/stars/MarcosNahuel/antigravity-plugin-cc?style=social)](https://github.com/MarcosNahuel/antigravity-plugin-cc/stargazers)
 
 > ### ⚠️ Heads-up: `gemini-cli` shuts down on **June 18, 2026**
 >
@@ -16,9 +17,17 @@
 >
 > **If you were using [`gemini-plugin-cc`](https://github.com/abiswas97/gemini-plugin-cc) inside Claude Code, this plugin is your migration path.** It targets `agy` directly. Enterprise users on Code Assist Standard/Enterprise licenses are not affected by the cutoff.
 
-**TL;DR** — `/agy:notebook <folder> | <objective>` turns a folder of documents into a **local NotebookLM**: one objective-driven summary per document, a relevance `INDEX.md`, a cited `RESUMEN_MAESTRO.md`, a `TIMELINE.md` and an `ENTIDADES.md` — then `/agy:notebook-ask` answers questions over them **with citations**. All the heavy reading runs in Gemini 3.x via `agy`, so it barely touches Claude's context. Plus deep web research with citations, branded HTML reports, git-diff code review, doc-to-markdown, browser recording and more. **No Node.js runtime. No MCP gymnastics. Thirteen slash commands.**
+**TL;DR** — `/agy:notebook <folder> | <objective>` turns a folder of documents into a **local NotebookLM**: one objective-driven summary per document, a relevance `INDEX.md`, a cited `RESUMEN_MAESTRO.md`, a `TIMELINE.md` and an `ENTIDADES.md` — then `/agy:notebook-ask` answers questions over them **with citations**. All the heavy reading runs in Gemini 3.x via `agy`, so it barely touches Claude's context. Plus **audio & video transcription** (`/agy:transcribe`, `/agy:media`), deep web research with citations, branded HTML reports, git-diff code review, doc-to-markdown, browser recording and more. **No Node.js runtime. No MCP gymnastics. Thirteen slash commands.**
 
 [**Install**](#install) · [**Slash commands**](#slash-commands) · [**Examples**](#usage-examples) · [**FAQ**](#faq) · [**Compare to alternatives**](#compared-to-alternatives)
+
+> **Install — the canonical repo (accept no look-alikes):**
+>
+> ```
+> /plugin marketplace add MarcosNahuel/antigravity-plugin-cc
+> /plugin install antigravity@marcosnahuel-antigravity
+> ```
+> Requires the `agy` CLI installed + a Google/Antigravity sign-in. Then `/agy:setup`.
 
 ---
 
@@ -86,6 +95,8 @@ scan doesn't time out. Built for reading **legal expedientes, RFPs, research fol
 |---|---|
 | `/agy:notebook <folder> \| <objective>` | **Local NotebookLM.** Sweeps every document in a folder (PDF/scan/image/docx, hybrid text + multimodal OCR) into an objective-driven summary per doc, then a relevance `INDEX.md` and a cited `RESUMEN_MAESTRO.md`. All heavy reading runs in agy; the orchestrator only reads the two final files. Saves to `docs/agy/notebook/<folder>/`. |
 | `/agy:notebook-ask <folder> \| <question>` | **Chat over a notebook corpus** — answers from the per-doc summaries built by `/agy:notebook`, with citations. Cheap; never re-reads the originals. Saves a Q&A trail. |
+| `/agy:transcribe <audio\|video\|URL> [focus]` | **Transcribe + summarize audio or video** (or a YouTube/remote URL) with Gemini — voice notes, meetings, calls, screencasts. Timestamps for video. *Claude can't hear; agy can.* Saves to `docs/agy/transcripts/`. |
+| `/agy:media <file\|URL> \| <question>` | **Multimodal Q&A over audio / video / image** — "what decisions were made?", "what happens at 2:30?", "what's the tone?". Grounded, with time references. Saves to `docs/agy/media/`. |
 | `/agy:model [alias\|"label"]` | **Show or switch the agy model** by writing `settings.json` (the reliable lever; `--model` is unreliable). Aliases: `flash-low`, `pro`, `pro-high`, `sonnet`, `opus`, `gpt-oss`. No agy call, no reinstall. |
 | `/agy:research <topic> [--intensity low\|medium\|high]` | **Deep web research.** Saves to `docs/agy/research/YYYY-MM-DD-<slug>.md`. Default: `medium`. |
 | `/agy:report <markdown> [--template <id>] [--images native\|external\|none]` | **Branded HTML document from a markdown source** using the TRAID Design System (5 templates) — turns your `.md` (with `![generate: ...]` cues) into a publication-grade page with infographics. Saves to `docs/agy/reports/`. See [Infographics](#documents-with-infographics--agyreport). |
