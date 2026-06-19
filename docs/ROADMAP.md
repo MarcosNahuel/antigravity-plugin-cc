@@ -107,10 +107,15 @@ Fuentes: búsqueda web 2026-06-19 (delegate-agy README, geminicli.com/extensions
 8. **notebook — salida adicional**: `TIMELINE.md` y/o `ENTIDADES.md` (personas/montos/expedientes)
    como artefactos extra (estilo "briefing doc" de NotebookLM).
 
-### Baja / explorar
+### Baja / explorar — EVALUADO 2026-06-19 (requieren tu visto, no implementados)
 9. **Audio overview** (estilo NotebookLM podcast) si agy/Gemini expone TTS.
 10. **ACP en vez de `--print`** (como gemini-plugin-cc) — evita issue #76 de raíz, pero es refactor grande.
 11. **JSON output** opcional en los comandos que devuelven datos estructurados (scrape/notebook index).
+
+> **Veredicto de la evaluación (no tocar sin avisar):**
+> - **#9 Audio overview** — requiere TTS; `agy`/Gemini no lo expone por CLI de forma usable. **Descartado** por ahora (se podría generar un guión .md tipo "podcast script" sin audio, si interesa).
+> - **#10 ACP en vez de `--print`** — eliminaría issue #76 de raíz pero es un **refactor grande y riesgoso** (reescribe la invocación de los 13 comandos). El workaround `write_file` ya funciona y está probado. **NO implementar sin decisión explícita.**
+> - **#11 JSON output** — bajo riesgo, valor acotado (útil para `scrape` y el índice de notebook si se consumen mngprogramáticamente). **Opcional**; se puede hacer si lo pedís.
 
 ---
 
