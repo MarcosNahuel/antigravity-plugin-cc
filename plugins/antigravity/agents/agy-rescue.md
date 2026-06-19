@@ -174,7 +174,7 @@ When this happens, agy exits 0 but the `WRITE_FILE` you instructed it to write *
 The slash command passes you a header block followed by the user's text:
 
 ```
-MODE: rescue|research|setup|record|scrape|doc-to-md|design-review|ask|review|report-analyze|report-generate
+MODE: rescue|research|setup|record|scrape|doc-to-md|design-review|ask|review|report-analyze|report-generate|notebook|notebook-index
 INTENSITY: low|medium|high          # only for research
 MODEL:                              # reserved for forward compat — agy 1.0.x ignores model overrides
 RESUME: true|false                  # add --continue if true
@@ -205,6 +205,16 @@ SOURCE_FILE: <absolute path to markdown source>
 SOURCE_FILE: <absolute path to markdown source>
 STYLE_SPEC: <multiline style block: name + description + palette + vibe>
 IMAGES: native|external|none      # how ![generate: ...] cues become images (default native)
+# notebook mode adds (one document → one objective-driven summary):
+OBJETIVO: <case objective in natural language>
+INPUT_MODE: text|vision           # text = read TEXT_FILE; vision = read SOURCE_FILE multimodally
+SOURCE_FILE: <absolute path to the original document>
+TEXT_FILE: <absolute path to pre-extracted text, or empty>
+# notebook-index mode adds (all summaries → index + master synthesis):
+OBJETIVO: <case objective in natural language>
+SUMMARIES_DIR: <absolute dir containing the *.resumen.md files>
+INDEX_FILE: <absolute path for INDEX.md>
+MASTER_FILE: <absolute path for RESUMEN_MAESTRO.md>
 USER_TEXT:
 <the raw user request goes here>
 ```
@@ -541,6 +551,89 @@ Multimodal document → clean markdown conversion.
   3. First ~30 lines of the conversion (preview).
   4. Approximate page/section count.
 
+### Mode: notebook
+
+One document → one **objective-driven** summary (NOT a faithful conversion). Part of the
+`/agy:notebook` sweep (a local NotebookLM): the caller fans this out, one call per document.
+
+- Timeout: `6m0s` (single document, summary not full transcription).
+- Always pass `--add-dir <CWD>` so agy can read the input file and write the summary.
+- The file agy must READ depends on `INPUT_MODE`:
+  - `text` → `<TEXT_FILE>` (already-extracted plain text; cheaper/faster than vision).
+  - `vision` → `<SOURCE_FILE>` (scanned PDF / image; agy uses multimodal OCR).
+- Prompt template:
+
+  ```
+  Document summary task — objective-driven. Output language: Spanish (es-AR).
+
+  Objetivo del caso: <OBJETIVO>
+
+  Read this file with your file / multimodal tools: <TEXT_FILE if INPUT_MODE=text else SOURCE_FILE>
+  (If it is a scanned image/PDF, OCR it. Do not translate; keep original wording for quoted data.)
+
+  Write a concise Spanish summary to this ABSOLUTE path: <WRITE_FILE>, with EXACTLY this shape:
+
+  ---
+  doc: <original file basename>
+  tipo: <document class if identifiable — e.g. NO, IF, PV, RS, ACTO, EXDIG, nota, resolución, planilla, foto…>
+  numero_gde: <GDE/expediente number if present, else "">
+  fecha: <YYYY-MM-DD of the document, or "ilegible"/"" if none>
+  emisor: <issuing office / person, or "">
+  relevancia: <integer 0-100 — how relevant THIS doc is to the objetivo>
+  ---
+  ## Síntesis
+  <2-6 sentences focused on the objetivo: what this document contributes to it>
+  ## Datos clave
+  - <citable facts: dates, amounts, resolution numbers, people, decisions — bullet list>
+  ## Relevancia
+  <1-2 sentences: why it is (or isn't) relevant to the objetivo>
+
+  Be faithful: if a date/number is unreadable, say "ilegible", do NOT invent it.
+  OUTPUT REQUIREMENT (CRITICAL): Do NOT print to chat. The written file is your only deliverable.
+  ```
+
+- After agy returns, return to caller: the saved summary path and the `relevancia` value (from
+  the frontmatter). Keep it terse — the caller is looping over many documents.
+
+### Mode: notebook-index
+
+All per-document summaries → a relevance **index** + a cited **master synthesis**. One call,
+run after the whole sweep. Reads only the small `*.resumen.md` files.
+
+- Timeout: `8m0s`.
+- Always pass `--add-dir <CWD>`.
+- Prompt template:
+
+  ```
+  Synthesis task over a set of document summaries. Output language: Spanish (es-AR).
+
+  Objetivo del caso: <OBJETIVO>
+
+  Read every "*.resumen.md" file in this directory: <SUMMARIES_DIR>
+  Each has frontmatter (doc, tipo, numero_gde, fecha, relevancia) and a short summary.
+
+  Write TWO files using write_file:
+
+  1. <INDEX_FILE> — a Markdown index of ALL documents, a table sorted by `relevancia` desc:
+     | Doc | Tipo | Fecha | Relevancia | Por qué (1 línea) |
+     Put a "## TOP — más relevantes para el objetivo" section first with the highest-scoring docs,
+     then "## Todos los documentos" with the full table. Mark any `estado: no_procesado` docs.
+
+  2. <MASTER_FILE> — RESUMEN_MAESTRO: a synthesis of the whole corpus oriented to the objetivo:
+     - "## Respuesta al objetivo": directly answer the objetivo from the evidence.
+     - "## Síntesis del caso": the narrative, CITING documents inline by numero_gde or doc name
+       (e.g. "según IF-2026-02429965 …", "[0041]").
+     - "## Línea de tiempo": bullet timeline of key dated milestones.
+     - "## Conclusión": 2-4 sentences.
+     Ground every claim in the summaries; if the evidence is insufficient for part of the
+     objetivo, say so explicitly. Do NOT invent facts not present in the summaries.
+
+  OUTPUT REQUIREMENT (CRITICAL): Do NOT print to chat. The two written files are your only deliverable.
+  ```
+
+- After agy returns, verify both `INDEX_FILE` and `MASTER_FILE` exist and are non-empty (same
+  WRITE_FILE check / recovery as other modes). Return their paths to the caller.
+
 ### Mode: design-review
 
 UX/visual audit using browser subagent + multimodal vision.
@@ -818,21 +911,38 @@ Phase 2 of the `/agy:report` flow. Read source markdown + style spec, ask agy to
 
 ### Mode: setup
 
-- Run a minimal ping. Phrase it so agy does NOT trigger agentic tool calls (ListDir, Search, ReadFile) that would consume the timeout before printing anything:
+Because of issue #76, a "reply pong to stdout" ping is useless here — `agy --print` writes
+nothing to stdout when not a TTY, whether it worked or not. **Test with `write_file` and check
+the file instead.** Use a writable temp dir via `--add-dir`:
 
-  ```bash
-  agy --dangerously-skip-permissions --print-timeout 60s --print "Reply with the single word: pong. Do not use any tools. Do not search anything. Do not read any files. Output the literal text 'pong' and nothing else." < /dev/null
-  ```
+```bash
+OUT="${TMPDIR:-/tmp}/agy_ping.txt"; LOG="${TMPDIR:-/tmp}/agy_ping.log"; rm -f "$OUT" "$LOG"
+agy --dangerously-skip-permissions --add-dir "$(dirname "$OUT")" --print-timeout 90s --log-file "$LOG" --print "Use the write_file tool to write exactly the word pong to the file $OUT . Write nothing else and use no other tools." < /dev/null
+cat "$OUT" 2>/dev/null
+```
 
-- Report: binary path, version (from `agy changelog | head -n 1` if available), and whether the ping returned `pong` within the timeout.
-- If stdout is empty and exit code is 0, **do not assume OAuth is missing**. Due to issue #76, `--print` mode often returns empty stdout even on success. Verify success by:
-  1. Checking `~/.gemini/antigravity-cli/installation_id` exists and is non-empty (proves agy is installed).
-  2. Checking the latest log file in `~/.gemini/antigravity-cli/log/` for either authentication errors or successful API calls.
+- **Success = the file `$OUT` exists and contains `pong`.** If so, agy is installed, authenticated
+  and working — report success.
+- **⚠️ IGNORE these log lines — they are non-fatal noise, present even on a fully successful run:**
+  `"You are not logged into Antigravity"`, `"getting token source"`, `FetchAvailableModels`,
+  `loadCodeAssistResponse`, `userInfo`, `ListExperiments`, `Skipping telemetry`. They come from
+  secondary auth scopes (code-assist features, model list, telemetry); the core `streamGenerateContent`
+  model calls do NOT need that token. **Do NOT report them as a login problem and do NOT tell the
+  user to re-authenticate based on them — that is a false alarm** (verified 2026-06-19: agy wrote
+  the file successfully while emitting all of those lines).
+- If the file was **NOT** written, triage in order:
+  1. Binary missing / not on PATH → tell the user to install Antigravity (see install note). Stop.
+  2. Log shows `streamGenerateContent` calls but a `timed out` / no `write_file` → it's the
+     **task or timeout**, not auth: re-run with a larger `--print-timeout` or a smaller/stricter task.
+  3. Only a genuine fatal sign-in line (e.g. `OAuth login required`, `please run agy to sign in` —
+     NOT the secondary-scope warnings above) means re-login: tell the user to run `agy` once
+     interactively in a normal terminal to complete the Google sign-in.
+- Report: binary path and version (`agy changelog | head -n 1`), and whether the write_file ping succeeded.
 - Do NOT touch user PATH or environment variables. If the binary is missing, just say so and stop.
 
 ## Safety rules
 
-- One `Bash` call for the main `agy` invocation per attempt (mode `research`/`ask`/`review`/`scrape`/`doc-to-md`/`design-review`/`report-generate` may retry once if the WRITE_FILE check detects the Windows rename bug — a second `Bash` call to agy is allowed only on retry, not for branching logic).
+- One `Bash` call for the main `agy` invocation per attempt (mode `research`/`ask`/`review`/`scrape`/`doc-to-md`/`design-review`/`report-generate`/`notebook`/`notebook-index` may retry once if the WRITE_FILE check detects the Windows rename bug — a second `Bash` call to agy is allowed only on retry, not for branching logic).
 - The pre-flight `.tmp` sweep adds one Bash call before agy in every mode. The output-file check adds one Bash call after agy (test -s + optional log tail) in modes with WRITE_FILE.
 - **Response recovery is allowed when output is missing/empty** (issue #76): one Bash call to tail the log for triage, and one Bash call to run the transcript Plan B recovery. These are recovery calls, not exploration — only run them when stdout is empty or the WRITE_FILE check failed, never speculatively. `rescue` mode (no WRITE_FILE) may use these same two recovery calls when stdout comes back empty.
 - Mode `record` and `research` may use one additional `Bash` call for post-processing (file moves, ffmpeg) and one `Write` call to prepend frontmatter or append a hint. Mode `setup` may use one additional `Bash` call for the version/log check. Mode `ask` may use one Bash call before agy (mktemp) and one after (rm). Mode `review` may use one Bash call before (size check on DIFF_FILE + mktemp) and one after (rm of both temp dirs). Mode `report-generate` may use one Bash call for output dir setup and one after for image asset moves.

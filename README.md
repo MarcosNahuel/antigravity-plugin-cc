@@ -28,7 +28,7 @@
 
 - **Antigravity CLI** (`agy`) is Google's official agentic command-line assistant — released at Google I/O 2026 as the successor to `gemini-cli`. Rewritten in Go for speed, with native web-search grounding built into Gemini 3.x and **multi-provider model support** (Gemini, Claude, GPT-OSS).
 - **Claude Code** is Anthropic's CLI for AI-assisted software engineering.
-- This plugin **bridges the two**: from inside Claude Code, you invoke `/agy:research`, `/agy:report`, `/agy:ask`, `/agy:review`, `/agy:rescue`, `/agy:record`, `/agy:scrape`, `/agy:doc-to-md`, `/agy:design-review`, or `/agy:setup` and the request gets handed to `agy --print` via a thin Bash forwarder.
+- This plugin **bridges the two**: from inside Claude Code, you invoke `/agy:notebook`, `/agy:research`, `/agy:report`, `/agy:ask`, `/agy:review`, `/agy:rescue`, `/agy:record`, `/agy:scrape`, `/agy:doc-to-md`, `/agy:design-review`, or `/agy:setup` and the request gets handed to `agy --print` via a thin Bash forwarder.
 
 The killer use case is **deep web research with citations** — Claude reasons over your repo, `agy` reasons over the live web. Each tool does what it's best at.
 
@@ -50,6 +50,7 @@ The killer use case is **deep web research with citations** — Claude reasons o
 
 | Command | What it does |
 |---|---|
+| `/agy:notebook <folder> \| <objective>` | **Local NotebookLM.** Sweeps every document in a folder (PDF/scan/image/docx, hybrid text + multimodal OCR) into an objective-driven summary per doc, then a relevance `INDEX.md` and a cited `RESUMEN_MAESTRO.md`. All heavy reading runs in agy; the orchestrator only reads the two final files. Saves to `docs/agy/notebook/<folder>/`. |
 | `/agy:research <topic> [--intensity low\|medium\|high]` | **Deep web research.** Saves to `docs/agy/research/YYYY-MM-DD-<slug>.md`. Default: `medium`. |
 | `/agy:report <markdown> [--template <id>] [--images native\|external\|none]` | **Branded HTML document from a markdown source** using the TRAID Design System (5 templates) — turns your `.md` (with `![generate: ...]` cues) into a publication-grade page with infographics. Saves to `docs/agy/reports/`. See [Infographics](#documents-with-infographics--agyreport). |
 | `/agy:ask <prompt>` | **One-shot quick prompt** to agy; returns the answer verbatim, no file persistence. |

@@ -4,6 +4,36 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4] — 2026-06-19
+
+Adds a local NotebookLM and corrects the setup health-check's auth diagnosis.
+
+### Added
+
+- **`/agy:notebook <folder> | <objective>` — a local replacement for NotebookLM.** Sweeps every
+  supported document in a folder (PDF with a text layer, scanned PDF, image, docx) and produces:
+  one objective-driven Markdown **summary per document** (frontmatter: tipo, numero_gde, fecha,
+  emisor, `relevancia` 0-100), a **`INDEX.md`** ranking the documents by relevance to the
+  objective, and a cited **`RESUMEN_MAESTRO.md`** synthesis (answer-to-objective + timeline +
+  conclusion). All heavy reading is offloaded to agy — the orchestrating agent only reads the two
+  small final files. Output in `docs/agy/notebook/<folder>/`.
+  - **Hybrid text/vision**: PDFs with a real text layer are pre-extracted and summarized as text
+    (faster/cheaper); scanned PDFs and images go through agy's multimodal OCR. Decided per document.
+  - **One document per agy call** (large multimodal batches time out), **3-4 concurrent** per
+    batch; a document that fails/times out is recorded as `no_procesado` and the sweep continues.
+  - New `agy-rescue` modes `notebook` (per-document summary) and `notebook-index` (index + master
+    synthesis), following the existing write_file / issue-#76 discipline.
+
+### Fixed
+
+- **`/agy:setup` no longer raises a false "you must re-login" alarm.** The agy log emits
+  `"You are not logged into Antigravity"`, `getting token source`, `FetchAvailableModels`,
+  `loadCodeAssistResponse`, `userInfo` and `Skipping telemetry` lines from **secondary** auth
+  scopes **even on a fully successful run** (verified 2026-06-19 — agy wrote its output file while
+  emitting all of them). Setup now tests with a real `write_file` ping and treats those lines as
+  non-fatal noise; it reports a genuine sign-in problem only when the output file is missing AND a
+  real sign-in line appears, otherwise distinguishing timeout/task-size from auth.
+
 ## [0.6.3] — 2026-06-07
 
 Patch release from a full end-to-end test pass of all 10 commands on agy 1.0.6. All commands verified working (research, report, ask, review, rescue, record, scrape, doc-to-md, design-review, setup — `review` correctly flagged two seeded bugs in a test diff). One real bug found and fixed.
