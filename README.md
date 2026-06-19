@@ -29,6 +29,10 @@
 > ```
 > Requires the `agy` CLI installed + a Google/Antigravity sign-in. Then `/agy:setup`.
 
+<p align="center">
+  <img src="docs/promo/notebook-demo.gif" alt="/agy:notebook sweeps a folder of documents into a cited synthesis — without filling Claude's context" width="760">
+</p>
+
 ---
 
 ## What is this?
