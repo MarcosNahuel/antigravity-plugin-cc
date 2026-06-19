@@ -83,6 +83,28 @@ scan doesn't time out. Built for reading **legal expedientes, RFPs, research fol
 
 ---
 
+## 🎙️ Audio & video transcription — `/agy:transcribe` & `/agy:media`
+
+Claude Code can't hear audio or watch video; Gemini (via `agy`) can. These two commands give Claude
+Code **native audio & video understanding**:
+
+- **`/agy:transcribe <audio|video file | YouTube/URL> [focus]`** — a faithful transcript + a summary,
+  with timestamps for video and URLs. Works on voice notes, meetings, calls, screencasts and public
+  YouTube/remote URLs (no download needed). Saved to `docs/agy/transcripts/`.
+- **`/agy:media <file|URL> | <question>`** — multimodal Q&A over an audio/video/image with
+  time-referenced answers ("what was decided around 02:30?", "what's the tone of this voice note?").
+  Saved to `docs/agy/media/`.
+
+```text
+/agy:transcribe  ./reunion.mp4  | acuerdos y responsables
+/agy:media  https://youtu.be/...  | ¿qué objeciones plantea el cliente y en qué minuto?
+```
+
+Common audio (ogg/opus/mp3/wav/m4a/flac) and video (mp4/mov/webm/…) formats work. Keep single files
+roughly under ~30 minutes to stay within the timeout, or split long recordings with `ffmpeg` first.
+
+---
+
 ## When should I use this plugin?
 
 | If you are… | This plugin helps because… |
