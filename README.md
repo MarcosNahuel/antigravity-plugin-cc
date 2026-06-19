@@ -51,6 +51,7 @@ The killer use case is **deep web research with citations** — Claude reasons o
 | Command | What it does |
 |---|---|
 | `/agy:notebook <folder> \| <objective>` | **Local NotebookLM.** Sweeps every document in a folder (PDF/scan/image/docx, hybrid text + multimodal OCR) into an objective-driven summary per doc, then a relevance `INDEX.md` and a cited `RESUMEN_MAESTRO.md`. All heavy reading runs in agy; the orchestrator only reads the two final files. Saves to `docs/agy/notebook/<folder>/`. |
+| `/agy:model [alias\|"label"]` | **Show or switch the agy model** by writing `settings.json` (the reliable lever; `--model` is unreliable). Aliases: `flash-low`, `pro`, `pro-high`, `sonnet`, `opus`, `gpt-oss`. No agy call, no reinstall. |
 | `/agy:research <topic> [--intensity low\|medium\|high]` | **Deep web research.** Saves to `docs/agy/research/YYYY-MM-DD-<slug>.md`. Default: `medium`. |
 | `/agy:report <markdown> [--template <id>] [--images native\|external\|none]` | **Branded HTML document from a markdown source** using the TRAID Design System (5 templates) — turns your `.md` (with `![generate: ...]` cues) into a publication-grade page with infographics. Saves to `docs/agy/reports/`. See [Infographics](#documents-with-infographics--agyreport). |
 | `/agy:ask <prompt>` | **One-shot quick prompt** to agy; returns the answer verbatim, no file persistence. |

@@ -1,5 +1,5 @@
 ---
-description: Local NotebookLM over a FOLDER of documents using Antigravity (agy). Sweeps each document (PDF with text, scanned PDF, image, docx) into an objective-driven Markdown summary, then builds a relevance INDEX and a cited master summary. Offloads all heavy reading to agy. Saves to docs/agy/notebook/.
+description: Local NotebookLM over a FOLDER of documents using Antigravity (agy). Sweeps each document (PDF with text, scanned PDF, image, docx) into an objective-driven Markdown summary, then builds a relevance INDEX and a cited master summary. Incremental cache (re-runs only re-summarize changed docs / changed objective) and automatic model routing (Flash for the sweep, Pro for the synthesis). Offloads all heavy reading to agy. Saves to docs/agy/notebook/.
 argument-hint: "<folder> | <objective>"
 context: fork
 allowed-tools: Bash, Read, Write, Agent
@@ -13,35 +13,33 @@ context cheap**: agy does all the document reading; you only read the two small 
 Raw user request:
 $ARGUMENTS
 
-## Phase 0 — Parse + list + classify (ONE Bash call)
+## Phase 0 — Parse + list + classify + cache (ONE Bash call)
 
 Parse `$ARGUMENTS`: split on the first `|`. Left side = folder, right side = objective.
 If there is no `|`, the longest leading token that resolves to an existing directory is the
 folder and the rest is the objective. If the folder is missing, ask once: "¿Qué carpeta querés
 analizar?" and stop.
 
-Run ONE Bash call (a Python helper) that:
-1. Resolves the folder to an absolute path; lists supported files (`.pdf .docx .doc .png .jpg
-   .jpeg .webp .gif`) sorted by name.
-2. Computes `SLUG` = lowercased folder basename, non-alphanumeric → `-`, collapsed, trimmed to 60.
-3. `OUTDIR = docs/agy/notebook/<SLUG>/`; `mkdir -p`. Also `mkdir -p "$OUTDIR/_text"`.
-4. **Hybrid classify** each file: for PDFs, extract text with PyMuPDF (`fitz`). If the document
-   has a real text layer (≥ ~200 non-space chars per page on average) → mode `text`, and write the
-   extracted text to `"$OUTDIR/_text/NN-<slug>.txt"`. Otherwise (scanned / little text) → mode
-   `vision`. `.docx/.doc` → `text` if extractable else `vision`. Images → always `vision`.
-5. Write a manifest `"$OUTDIR/_manifest.tsv"` with one line per doc:
-   `NN<TAB>mode<TAB>source_abspath<TAB>text_path_or_dash<TAB>summary_relpath`
-   where `summary_relpath = NN-<slug>.resumen.md`.
-6. Print the manifest and the counts (N docs, X text / Y vision).
-
-If the manifest is empty → tell the user there are no supported documents and stop.
+Run ONE Bash call (a Python helper). It lists supported files, classifies each as `text`
+(PDF with a real text layer → pre-extract) or `vision` (scanned/image → agy OCR), and applies an
+**incremental cache**: a document is marked `cached` (skipped) when its summary already exists AND
+its size+mtime AND the objective are unchanged since the last run. The cache key includes a hash of
+the objective, so changing the objective re-summarizes everything.
 
 ```bash
-python - "$FOLDER_ABS" "$OUTDIR" <<'PY'
-import sys, os, re, glob
+python - "$FOLDER_ABS" "$OUTDIR" "$OBJETIVO" <<'PY'
+import sys, os, re, glob, hashlib
 import fitz  # PyMuPDF
-folder, outdir = sys.argv[1], sys.argv[2]
+folder, outdir, objetivo = sys.argv[1], sys.argv[2], (sys.argv[3] if len(sys.argv) > 3 else "")
 os.makedirs(os.path.join(outdir, "_text"), exist_ok=True)
+objhash = hashlib.sha1(objetivo.strip().encode("utf-8")).hexdigest()[:8]
+# previous cache: summary_relpath -> key
+cache_path = os.path.join(outdir, "_cache.tsv")
+prev = {}
+if os.path.exists(cache_path):
+    for ln in open(cache_path, encoding="utf-8"):
+        p = ln.rstrip("\n").split("\t")
+        if len(p) == 2: prev[p[0]] = p[1]
 exts = (".pdf",".docx",".doc",".png",".jpg",".jpeg",".webp",".gif")
 files = sorted(f for f in glob.glob(os.path.join(folder,"*")) if f.lower().endswith(exts))
 def slug(s):
@@ -49,7 +47,12 @@ def slug(s):
     return s[:60] or "doc"
 rows=[]
 for i,f in enumerate(files,1):
-    nn=f"{i:03d}"; sl=slug(f); mode="vision"; tpath="-"
+    nn=f"{i:03d}"; sl=slug(f); summ=f"{nn}-{sl}.resumen.md"
+    st=os.stat(f); key=f"{st.st_size}:{int(st.st_mtime)}:{objhash}"
+    summ_abs=os.path.join(outdir, summ)
+    if os.path.exists(summ_abs) and prev.get(summ)==key:
+        rows.append((nn,"cached",os.path.abspath(f),"-",summ,key)); continue
+    mode="vision"; tpath="-"
     if f.lower().endswith(".pdf"):
         try:
             d=fitz.open(f); txt="\n".join(p.get_text() for p in d)
@@ -58,18 +61,46 @@ for i,f in enumerate(files,1):
                 open(tpath,"w",encoding="utf-8").write(txt)
             d.close()
         except Exception: mode="vision"
-    rows.append((nn,mode,os.path.abspath(f),tpath,f"{nn}-{sl}.resumen.md"))
+    rows.append((nn,mode,os.path.abspath(f),tpath,summ,key))
 with open(os.path.join(outdir,"_manifest.tsv"),"w",encoding="utf-8") as m:
     for r in rows: m.write("\t".join(r)+"\n")
-nt=sum(1 for r in rows if r[1]=="text"); nv=len(rows)-nt
-print(f"DOCS={len(rows)} TEXT={nt} VISION={nv} OUTDIR={outdir}")
+nc=sum(1 for r in rows if r[1]=="cached"); nt=sum(1 for r in rows if r[1]=="text"); nv=sum(1 for r in rows if r[1]=="vision")
+print(f"DOCS={len(rows)} CACHED={nc} TEXT={nt} VISION={nv} OUTDIR={outdir}")
 for r in rows: print("\t".join(r))
 PY
 ```
 
+Manifest columns: `NN  mode(text|vision|cached)  source_abspath  text_path_or_dash  summary_relpath  cache_key`.
+If the manifest is empty → tell the user there are no supported documents and stop. If ALL docs are
+`cached` → skip Phase 1 entirely (nothing changed) and go straight to Phase 2.
+
+## Phase 0.5 — Model routing (ONE Bash call, best-effort, reversible)
+
+The per-document summaries don't need deep reasoning; the final synthesis does. Save the user's
+current agy model, switch to a fast one for the sweep, and **remember to restore it in Phase 3**.
+agy reads its model from `settings.json` (the reliable lever — see `/agy:model`); `--model` is not.
+
+```bash
+python - <<'PY'
+import json, os
+sp=os.path.expanduser("~/.gemini/antigravity-cli/settings.json")
+try: cfg=json.load(open(sp,encoding="utf-8"))
+except Exception: cfg={}
+orig=cfg.get("model","")
+open(os.path.join(os.environ.get("TMPDIR","/tmp"),"agy_notebook_orig_model.txt"),"w",encoding="utf-8").write(orig)
+cfg["model"]="Gemini 3.5 Flash (Low)"
+json.dump(cfg,open(sp,"w",encoding="utf-8"),ensure_ascii=False,indent=2)
+print(f"model: {orig or '(default)'} -> Gemini 3.5 Flash (Low) for the sweep (orig saved)")
+PY
+```
+
+> Best-effort: if the account lacks a label, agy silently keeps its default — harmless. The original
+> model is restored in Phase 3 regardless of outcome.
+
 ## Phase 1 — Per-document summaries (fan out agy, with rate-limit-aware retry)
 
-Fan out one `antigravity:agy-rescue` subagent in **MODE: notebook** per document. Pass:
+Dispatch only manifest rows whose mode is `text` or `vision` (**skip `cached`**). One
+`antigravity:agy-rescue` subagent in **MODE: notebook** per document. Pass:
 
 ```
 MODE: notebook
@@ -94,7 +125,7 @@ blind parallelism). On a Pro/Ultra tier the retries below rarely fire; on free t
 
 **Drive it as retry rounds** (don't trust the subagents' self-reports; trust the files on disk):
 
-1. **Round 1** — spawn waves of up to 10 until every manifest doc has been dispatched once.
+1. **Round 1** — spawn waves of up to 10 until every non-`cached` manifest doc has been dispatched once.
 2. **Check** (ONE Bash call): for every `summary_relpath`, test the file exists AND is non-empty
    (`test -s`). Collect the `missing` list.
 3. **Retry rounds (up to 2)** — if `missing` is non-empty, **wait ~60s** (one `sleep 60` — lets the
@@ -110,14 +141,37 @@ blind parallelism). On a Pro/Ultra tier the retries below rarely fire; on free t
    ---
    No se pudo procesar tras reintentos (timeout o rate-limit de agy). Reintentar con /agy:notebook.
    ```
+5. **Update the cache** (ONE Bash call): rewrite `<OUTDIR>/_cache.tsv` from the manifest — one
+   `summary_relpath\tcache_key` line for every doc whose summary file now exists and is non-empty
+   (this records the `cached` rows plus the freshly-summarized ones; stubs/`no_procesado` are
+   excluded so they retry next run):
+   ```bash
+   awk -F'\t' '{print $5"\t"$6}' "$OUTDIR/_manifest.tsv" | while IFS=$'\t' read -r s k; do
+     [ -s "$OUTDIR/$s" ] && ! grep -q "estado: no_procesado" "$OUTDIR/$s" && printf '%s\t%s\n' "$s" "$k"
+   done > "$OUTDIR/_cache.tsv"
+   ```
 
 > The per-minute ceiling is the real limiter, not local CPU — pushing concurrency far past ~10 just
 > produces more 429s, not more throughput. 10-per-wave + the 60s backoff between retry rounds is the
 > sweet spot on the free tier. (A paid Antigravity tier with higher RPM could raise the wave size.)
 
-## Phase 2 — Index + master synthesis (ONE agy subagent)
+## Phase 2 — Index + master synthesis (switch model, then ONE agy subagent)
 
-After all summaries exist, spawn ONE `antigravity:agy-rescue` subagent in **MODE: notebook-index**:
+First switch agy to a higher-quality model for the synthesis (ONE Bash call, best-effort):
+
+```bash
+python - <<'PY'
+import json, os
+sp=os.path.expanduser("~/.gemini/antigravity-cli/settings.json")
+try: cfg=json.load(open(sp,encoding="utf-8"))
+except Exception: cfg={}
+cfg["model"]="Gemini 3.1 Pro (Low)"
+json.dump(cfg,open(sp,"w",encoding="utf-8"),ensure_ascii=False,indent=2)
+print("model -> Gemini 3.1 Pro (Low) for the synthesis")
+PY
+```
+
+Then spawn ONE `antigravity:agy-rescue` subagent in **MODE: notebook-index**:
 
 ```
 MODE: notebook-index
@@ -130,10 +184,26 @@ USER_TEXT:
 (empty)
 ```
 
-## Phase 3 — Report
+## Phase 3 — Restore model + report
 
-Read ONLY `<OUTDIR>/INDEX.md` and `<OUTDIR>/RESUMEN_MAESTRO.md` (they are small) and present:
-1. The objective and the doc counts (total / text / vision / no_procesado).
+First restore the user's original model (ONE Bash call — do this even if earlier phases failed):
+
+```bash
+python - <<'PY'
+import json, os
+sp=os.path.expanduser("~/.gemini/antigravity-cli/settings.json")
+mp=os.path.join(os.environ.get("TMPDIR","/tmp"),"agy_notebook_orig_model.txt")
+try: orig=open(mp,encoding="utf-8").read().strip()
+except Exception: orig=""
+try: cfg=json.load(open(sp,encoding="utf-8"))
+except Exception: cfg={}
+if orig: cfg["model"]=orig; json.dump(cfg,open(sp,"w",encoding="utf-8"),ensure_ascii=False,indent=2)
+print(f"model restored -> {orig or '(unchanged)'}")
+PY
+```
+
+Then read ONLY `<OUTDIR>/INDEX.md` and `<OUTDIR>/RESUMEN_MAESTRO.md` (they are small) and present:
+1. The objective and the doc counts (total / cached / text / vision / no_procesado).
 2. The TOP relevant documents from `INDEX.md`.
 3. The master summary's conclusion.
 4. The path to `<OUTDIR>` for the full per-document summaries.
@@ -145,10 +215,9 @@ point (agy already did the reading). Only the two final files.
 - agy `--print` writes nothing to stdout outside a TTY (issue #76) — every agy call writes to a
   file; the subagent verifies the file exists. This command never relies on agy stdout.
 - 1 document per agy call (large multimodal batches time out), up to 10 calls per wave (see Phase 1).
-- **Speed tip — pick a low-effort model.** These per-document summaries don't need deep reasoning,
-  so a faster model makes the whole sweep cheaper and quicker. agy uses whatever model is selected
-  in its TUI (run `agy`, "Switch Model"), which persists in `~/.gemini/antigravity-cli/settings.json`
-  (`"model": "..."`) and is honored by `--print`. **`Gemini 3.5 Flash (Low)`** is a good default for
-  the sweep; bump to a Pro/High model only if a corpus needs deeper synthesis. No per-call `--model`
-  flag is needed — the persisted selection applies automatically.
-- The `_text/` and `_manifest.tsv` are intermediate artifacts; they can be deleted after.
+- **Incremental**: re-running the same folder + objective only re-summarizes new/changed documents
+  (cache in `_cache.tsv`, keyed by size+mtime+objective hash). Change the objective → full re-sweep.
+- **Model routing** is automatic (Flash Low for the per-doc sweep, 3.1 Pro Low for the synthesis,
+  original restored after) and best-effort — see `/agy:model` to inspect/override the active model.
+- The `_text/`, `_manifest.tsv` and `_cache.tsv` are intermediate artifacts; keep `_cache.tsv` to
+  preserve the incremental cache, the rest can be deleted.

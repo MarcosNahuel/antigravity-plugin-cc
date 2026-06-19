@@ -4,6 +4,26 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.6] — 2026-06-19
+
+Model control + an incremental, model-routed `/agy:notebook`.
+
+### Added
+
+- **`/agy:model [alias|"label"]` — show or switch the agy model.** Writes the model label into
+  `~/.gemini/antigravity-cli/settings.json` (the reliable lever — the `--model` CLI flag silently
+  falls back to the default on an unknown id). No agy call, no reinstall; takes effect immediately.
+  Stable aliases (`flash-low`, `pro`, `pro-high`, `sonnet`, `opus`, `gpt-oss`, …) in
+  `config/model-map.json`; also accepts a full quoted label verbatim. Warns when agy ignores a label
+  (wrong string for the account → verify against the TUI "Switch Model" list).
+- **`/agy:notebook` — incremental cache.** Re-running the same folder + objective now only
+  re-summarizes new or changed documents (cache key = size + mtime + objective hash, in
+  `_cache.tsv`). Changing the objective invalidates the whole cache (summaries are objective-driven).
+- **`/agy:notebook` — automatic model routing.** The per-document sweep runs on `Gemini 3.5 Flash
+  (Low)` (fast/cheap), the final synthesis on `Gemini 3.1 Pro (Low)` (quality where it matters), and
+  the user's original model is restored afterward. Best-effort: an unavailable label degrades to
+  agy's default, harmlessly.
+
 ## [0.6.5] — 2026-06-19
 
 `/agy:notebook` throughput + a model-selection note.

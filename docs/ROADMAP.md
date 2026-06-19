@@ -85,7 +85,7 @@ Fuentes: búsqueda web 2026-06-19 (delegate-agy README, geminicli.com/extensions
 
 ## 5. Roadmap de mejoras propuestas (priorizado)
 
-### Alta prioridad (impacto directo, barato)
+### Alta prioridad — ✅ HECHO en v0.6.6 (2026-06-19)
 1. **Comando `/agy:model [nombre]`** — listar y **setear el modelo escribiendo `settings.json`**
    (`"model": "..."`). Es la forma confiable (el TUI hace exactamente eso; `--model` no sirve).
    Sin nombre → muestra el actual + opciones conocidas. Resuelve el dolor #4 sin abrir el TUI.
