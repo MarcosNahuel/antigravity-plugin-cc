@@ -4,6 +4,21 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.7] — 2026-06-19
+
+NotebookLM corpus Q&A + two extra briefing artifacts.
+
+### Added
+
+- **`/agy:notebook-ask <folder> | <question>` — chat over a notebook corpus.** Answers a question
+  from the per-document summaries built by `/agy:notebook` (never re-reading the originals), **with
+  inline citations** to the source documents. Cheap (reads only the small `*.resumen.md`). Requires
+  the corpus to exist; saves a Q&A trail under `docs/agy/notebook/<folder>/_respuestas/`.
+- **`/agy:notebook` now also emits `TIMELINE.md` and `ENTIDADES.md`** alongside `INDEX.md` and
+  `RESUMEN_MAESTRO.md`: a standalone chronological timeline, and extracted entities grouped as
+  Personas (with DNI/CUIL), Montos, Expedientes/resoluciones, and Escuelas/organismos — each with
+  the document where it appears. NotebookLM-style briefing artifacts, grounded only in the summaries.
+
 ## [0.6.6] — 2026-06-19
 
 Model control + an incremental, model-routed `/agy:notebook`.

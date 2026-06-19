@@ -174,7 +174,7 @@ When this happens, agy exits 0 but the `WRITE_FILE` you instructed it to write *
 The slash command passes you a header block followed by the user's text:
 
 ```
-MODE: rescue|research|setup|record|scrape|doc-to-md|design-review|ask|review|report-analyze|report-generate|notebook|notebook-index
+MODE: rescue|research|setup|record|scrape|doc-to-md|design-review|ask|review|report-analyze|report-generate|notebook|notebook-index|notebook-ask
 INTENSITY: low|medium|high          # only for research
 MODEL:                              # reserved for forward compat — agy 1.0.x ignores model overrides
 RESUME: true|false                  # add --continue if true
@@ -215,6 +215,11 @@ OBJETIVO: <case objective in natural language>
 SUMMARIES_DIR: <absolute dir containing the *.resumen.md files>
 INDEX_FILE: <absolute path for INDEX.md>
 MASTER_FILE: <absolute path for RESUMEN_MAESTRO.md>
+TIMELINE_FILE: <absolute path for TIMELINE.md>
+ENTIDADES_FILE: <absolute path for ENTIDADES.md>
+# notebook-ask mode adds (answer a question from the existing summaries):
+SUMMARIES_DIR: <absolute dir containing the *.resumen.md files>
+PREGUNTA: <the user's question>
 USER_TEXT:
 <the raw user request goes here>
 ```
@@ -612,7 +617,7 @@ run after the whole sweep. Reads only the small `*.resumen.md` files.
   Read every "*.resumen.md" file in this directory: <SUMMARIES_DIR>
   Each has frontmatter (doc, tipo, numero_gde, fecha, relevancia) and a short summary.
 
-  Write TWO files using write_file:
+  Write FOUR files using write_file:
 
   1. <INDEX_FILE> — a Markdown index of ALL documents, a table sorted by `relevancia` desc:
      | Doc | Tipo | Fecha | Relevancia | Por qué (1 línea) |
@@ -628,11 +633,49 @@ run after the whole sweep. Reads only the small `*.resumen.md` files.
      Ground every claim in the summaries; if the evidence is insufficient for part of the
      objetivo, say so explicitly. Do NOT invent facts not present in the summaries.
 
-  OUTPUT REQUIREMENT (CRITICAL): Do NOT print to chat. The two written files are your only deliverable.
+  3. <TIMELINE_FILE> — TIMELINE: a single chronological Markdown table of every dated event found
+     in the summaries: | Fecha (YYYY-MM-DD) | Hecho | Doc (numero_gde o nombre) |, sorted ascending.
+     Skip undated items. This is the "línea de tiempo" as a standalone briefing artifact.
+
+  4. <ENTIDADES_FILE> — ENTIDADES: extracted entities grouped under headings, each with the doc(s)
+     where it appears: "## Personas" (nombre + DNI/CUIL si aparece), "## Montos" (importe + concepto),
+     "## Expedientes y resoluciones" (números GDE / EX / resoluciones), "## Escuelas / organismos".
+     Only entities actually present in the summaries; no invention.
+
+  OUTPUT REQUIREMENT (CRITICAL): Do NOT print to chat. The four written files are your only deliverable.
   ```
 
-- After agy returns, verify both `INDEX_FILE` and `MASTER_FILE` exist and are non-empty (same
-  WRITE_FILE check / recovery as other modes). Return their paths to the caller.
+- After agy returns, verify `INDEX_FILE`, `MASTER_FILE`, `TIMELINE_FILE` and `ENTIDADES_FILE` exist
+  and are non-empty (same WRITE_FILE check / recovery as other modes). Return their paths to the caller.
+
+### Mode: notebook-ask
+
+Answer a question from the existing per-document summaries (the "chat" over a notebook corpus).
+Reads only the small `*.resumen.md` files — never the original documents.
+
+- Timeout: `5m0s`.
+- Always pass `--add-dir <CWD>`.
+- Prompt template:
+
+  ```
+  Question-answering task over a set of document summaries. Output language: Spanish (es-AR).
+
+  Pregunta: <PREGUNTA>
+
+  Read every "*.resumen.md" file in this directory: <SUMMARIES_DIR>. Each has frontmatter
+  (doc, tipo, numero_gde, fecha, relevancia) and a short objective-driven summary.
+
+  Answer the pregunta using ONLY what the summaries contain. CITE the source document(s) inline for
+  every claim (by numero_gde or doc name, e.g. "según IF-2026-02429965 [0041]"). If the summaries do
+  not contain enough to answer, say so explicitly and point to which documents might hold it (by
+  relevance) instead of inventing. Lead with a direct answer, then the supporting detail with citations.
+
+  Write the answer to this ABSOLUTE path: <WRITE_FILE>.
+  OUTPUT REQUIREMENT (CRITICAL): Do NOT print to chat. The written file is your only deliverable.
+  ```
+
+- After agy returns, verify `WRITE_FILE` exists and is non-empty (same WRITE_FILE check / recovery).
+  Return its path and the answer to the caller.
 
 ### Mode: design-review
 
@@ -942,7 +985,7 @@ cat "$OUT" 2>/dev/null
 
 ## Safety rules
 
-- One `Bash` call for the main `agy` invocation per attempt (mode `research`/`ask`/`review`/`scrape`/`doc-to-md`/`design-review`/`report-generate`/`notebook`/`notebook-index` may retry once if the WRITE_FILE check detects the Windows rename bug — a second `Bash` call to agy is allowed only on retry, not for branching logic).
+- One `Bash` call for the main `agy` invocation per attempt (mode `research`/`ask`/`review`/`scrape`/`doc-to-md`/`design-review`/`report-generate`/`notebook`/`notebook-index`/`notebook-ask` may retry once if the WRITE_FILE check detects the Windows rename bug — a second `Bash` call to agy is allowed only on retry, not for branching logic).
 - The pre-flight `.tmp` sweep adds one Bash call before agy in every mode. The output-file check adds one Bash call after agy (test -s + optional log tail) in modes with WRITE_FILE.
 - **Response recovery is allowed when output is missing/empty** (issue #76): one Bash call to tail the log for triage, and one Bash call to run the transcript Plan B recovery. These are recovery calls, not exploration — only run them when stdout is empty or the WRITE_FILE check failed, never speculatively. `rescue` mode (no WRITE_FILE) may use these same two recovery calls when stdout comes back empty.
 - Mode `record` and `research` may use one additional `Bash` call for post-processing (file moves, ffmpeg) and one `Write` call to prepend frontmatter or append a hint. Mode `setup` may use one additional `Bash` call for the version/log check. Mode `ask` may use one Bash call before agy (mktemp) and one after (rm). Mode `review` may use one Bash call before (size check on DIFF_FILE + mktemp) and one after (rm of both temp dirs). Mode `report-generate` may use one Bash call for output dir setup and one after for image asset moves.

@@ -180,6 +180,8 @@ OBJETIVO: <objective>
 SUMMARIES_DIR: <OUTDIR>               # contains the *.resumen.md files
 INDEX_FILE: <OUTDIR>/INDEX.md
 MASTER_FILE: <OUTDIR>/RESUMEN_MAESTRO.md
+TIMELINE_FILE: <OUTDIR>/TIMELINE.md
+ENTIDADES_FILE: <OUTDIR>/ENTIDADES.md
 USER_TEXT:
 (empty)
 ```
@@ -206,7 +208,8 @@ Then read ONLY `<OUTDIR>/INDEX.md` and `<OUTDIR>/RESUMEN_MAESTRO.md` (they are s
 1. The objective and the doc counts (total / cached / text / vision / no_procesado).
 2. The TOP relevant documents from `INDEX.md`.
 3. The master summary's conclusion.
-4. The path to `<OUTDIR>` for the full per-document summaries.
+4. The path to `<OUTDIR>` for the full per-document summaries, plus `TIMELINE.md` and `ENTIDADES.md`.
+5. Tip: ask follow-up questions over this corpus with `/agy:notebook-ask <folder> | <pregunta>`.
 
 Do NOT read the original documents or the per-document summaries yourself — that's the whole
 point (agy already did the reading). Only the two final files.
