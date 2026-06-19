@@ -16,7 +16,7 @@
 >
 > **If you were using [`gemini-plugin-cc`](https://github.com/abiswas97/gemini-plugin-cc) inside Claude Code, this plugin is your migration path.** It targets `agy` directly. Enterprise users on Code Assist Standard/Enterprise licenses are not affected by the cutoff.
 
-**TL;DR** — Type `/agy:research <topic>` inside Claude Code to get a structured markdown report grounded in real web-search results from Gemini 3.x. Type `/agy:record <url>` to record a browser walkthrough as a `.webm` (+ optional MP4 via ffmpeg). Type `/agy:scrape <url>` to extract structured data. Type `/agy:doc-to-md <pdf>` to convert documents to clean Markdown. Type `/agy:design-review <url>` to audit a page's UX/visual design across 10 dimensions with mobile + desktop screenshots. No Node.js runtime. No MCP setup gymnastics. Seven slash commands. ~11 files of plugin code.
+**TL;DR** — `/agy:notebook <folder> | <objective>` turns a folder of documents into a **local NotebookLM**: one objective-driven summary per document, a relevance `INDEX.md`, a cited `RESUMEN_MAESTRO.md`, a `TIMELINE.md` and an `ENTIDADES.md` — then `/agy:notebook-ask` answers questions over them **with citations**. All the heavy reading runs in Gemini 3.x via `agy`, so it barely touches Claude's context. Plus deep web research with citations, branded HTML reports, git-diff code review, doc-to-markdown, browser recording and more. **No Node.js runtime. No MCP gymnastics. Thirteen slash commands.**
 
 [**Install**](#install) · [**Slash commands**](#slash-commands) · [**Examples**](#usage-examples) · [**FAQ**](#faq) · [**Compare to alternatives**](#compared-to-alternatives)
 
@@ -31,6 +31,40 @@
 - This plugin **bridges the two**: from inside Claude Code, you invoke `/agy:notebook`, `/agy:research`, `/agy:report`, `/agy:ask`, `/agy:review`, `/agy:rescue`, `/agy:record`, `/agy:scrape`, `/agy:doc-to-md`, `/agy:design-review`, or `/agy:setup` and the request gets handed to `agy --print` via a thin Bash forwarder.
 
 The killer use case is **deep web research with citations** — Claude reasons over your repo, `agy` reasons over the live web. Each tool does what it's best at.
+
+---
+
+## 🗒️ Flagship: a local NotebookLM — `/agy:notebook`
+
+Point it at a **folder of documents** (PDFs with text, scanned PDFs, images, docx) and an
+**objective**. `agy` (Gemini 3.x, multimodal) reads every document — OCR'ing the scans — and writes:
+
+- one **objective-driven summary per document** (`NN-<slug>.resumen.md`, with `relevancia` 0–100),
+- **`INDEX.md`** — every document ranked by relevance to your objective,
+- **`RESUMEN_MAESTRO.md`** — a synthesis that answers your objective, **citing each source document**,
+- **`TIMELINE.md`** — a chronological table of dated events, and
+- **`ENTIDADES.md`** — extracted people, amounts, references and organizations, each with its source.
+
+Then ask follow-up questions over the corpus:
+
+```text
+/agy:notebook  ./expediente  | objective: parties, key dates, amounts, status
+/agy:notebook-ask  ./expediente  | who started the file and on what date?
+→ "The file was opened by J. Doe on 2022-07-08." (cites PV-2022-04770554)
+```
+
+Why it's different from pasting docs into a chat:
+
+- **Cheap on Claude tokens** — Claude orchestrates; `agy` does all the document reading. You only
+  read the two small final files.
+- **Grounded + cited** — answers come only from your documents, with the source named.
+- **Incremental** — re-running only re-summarizes new/changed documents (cache keyed by the objective).
+- **Model-routed** — fast `Flash` for the per-doc sweep, `Pro` for the synthesis (`/agy:model`).
+- **Local & private** — your documents never leave your machine + your own Gemini account.
+
+It scales to real corpora: a 184-page scanned file is auto-split into page chunks so a single huge
+scan doesn't time out. Built for reading **legal expedientes, RFPs, research folders, contract sets**.
+
 
 ---
 
