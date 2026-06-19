@@ -1,6 +1,6 @@
 # Antigravity Plugin for Claude Code
 
-> **Deep web research, code rescue, and task delegation from Claude Code to Google Antigravity (`agy`) — the official CLI that replaces the now-deprecated `gemini-cli`.**
+> **A local NotebookLM — and 12 more commands — for Claude Code, powered by Google Antigravity (`agy` / Gemini 3.x), the official CLI that replaces the now-deprecated `gemini-cli`. Read whole folders of documents, transcribe audio & video, and research the web with citations — locally, offloading the heavy reading to Gemini so it barely touches Claude's context.**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-7c3aed)](https://docs.claude.com/en/docs/claude-code/plugins)
