@@ -27,47 +27,57 @@ its size+mtime AND the objective are unchanged since the last run. The cache key
 the objective, so changing the objective re-summarizes everything.
 
 ```bash
-python - "$FOLDER_ABS" "$OUTDIR" "$OBJETIVO" <<'PY'
+python - "$FOLDER_ABS" "$OUTDIR" "$OBJETIVO" <<'PYEOF'
 import sys, os, re, glob, hashlib
 import fitz  # PyMuPDF
 folder, outdir, objetivo = sys.argv[1], sys.argv[2], (sys.argv[3] if len(sys.argv) > 3 else "")
 os.makedirs(os.path.join(outdir, "_text"), exist_ok=True)
 objhash = hashlib.sha1(objetivo.strip().encode("utf-8")).hexdigest()[:8]
-# previous cache: summary_relpath -> key
-cache_path = os.path.join(outdir, "_cache.tsv")
-prev = {}
+MAXV, CHUNK = 20, 15   # a scanned PDF over MAXV pages is split into CHUNK-page sub-PDFs (one agy
+                       # vision call cannot OCR hundreds of pages — it would time out)
+cache_path = os.path.join(outdir, "_cache.tsv"); prev = {}
 if os.path.exists(cache_path):
     for ln in open(cache_path, encoding="utf-8"):
-        p = ln.rstrip("\n").split("\t")
-        if len(p) == 2: prev[p[0]] = p[1]
+        pp = ln.rstrip("\n").split("\t")
+        if len(pp) == 2: prev[pp[0]] = pp[1]
 exts = (".pdf",".docx",".doc",".png",".jpg",".jpeg",".webp",".gif")
 files = sorted(f for f in glob.glob(os.path.join(folder,"*")) if f.lower().endswith(exts))
 def slug(s):
     s = re.sub(r"[^a-z0-9]+","-", os.path.splitext(os.path.basename(s))[0].lower()).strip("-")
     return s[:60] or "doc"
+def mkrow(nn, mode, src, tpath, summ, key):     # apply incremental cache per output file
+    if os.path.exists(os.path.join(outdir, summ)) and prev.get(summ) == key:
+        return (nn, "cached", src, "-", summ, key)
+    return (nn, mode, src, tpath, summ, key)
 rows=[]
 for i,f in enumerate(files,1):
-    nn=f"{i:03d}"; sl=slug(f); summ=f"{nn}-{sl}.resumen.md"
-    st=os.stat(f); key=f"{st.st_size}:{int(st.st_mtime)}:{objhash}"
-    summ_abs=os.path.join(outdir, summ)
-    if os.path.exists(summ_abs) and prev.get(summ)==key:
-        rows.append((nn,"cached",os.path.abspath(f),"-",summ,key)); continue
-    mode="vision"; tpath="-"
-    if f.lower().endswith(".pdf"):
+    nn=f"{i:03d}"; sl=slug(f); st=os.stat(f); key=f"{st.st_size}:{int(st.st_mtime)}:{objhash}"
+    is_pdf=f.lower().endswith(".pdf"); mode="vision"; tpath="-"; pages=0; d=None
+    if is_pdf:
         try:
-            d=fitz.open(f); txt="\n".join(p.get_text() for p in d)
-            if d.page_count and len(txt.strip())/d.page_count >= 200:
+            d=fitz.open(f); pages=d.page_count; txt="\n".join(p.get_text() for p in d)
+            if pages and len(txt.strip())/pages >= 200:
                 mode="text"; tpath=os.path.join(outdir,"_text",f"{nn}-{sl}.txt")
                 open(tpath,"w",encoding="utf-8").write(txt)
-            d.close()
-        except Exception: mode="vision"
-    rows.append((nn,mode,os.path.abspath(f),tpath,summ,key))
+        except Exception:
+            mode,pages,d="vision",0,None
+    if mode=="vision" and is_pdf and pages>MAXV and d is not None:
+        os.makedirs(os.path.join(outdir,"_chunks"),exist_ok=True)   # oversized scan -> page-range chunks
+        for ci,startp in enumerate(range(0,pages,CHUNK),1):
+            endp=min(startp+CHUNK,pages)
+            cpath=os.path.join(outdir,"_chunks",f"{nn}-{sl}-p{startp+1:03d}-{endp:03d}.pdf")
+            sub=fitz.open(); sub.insert_pdf(d,from_page=startp,to_page=endp-1); sub.save(cpath); sub.close()
+            summ=f"{nn}-{sl}-p{startp+1:03d}-{endp:03d}.resumen.md"
+            rows.append(mkrow(nn,"vision",cpath,"-",summ,f"{key}:c{ci}"))
+    else:
+        rows.append(mkrow(nn,mode,os.path.abspath(f),tpath,f"{nn}-{sl}.resumen.md",key))
+    if d is not None: d.close()
 with open(os.path.join(outdir,"_manifest.tsv"),"w",encoding="utf-8") as m:
     for r in rows: m.write("\t".join(r)+"\n")
 nc=sum(1 for r in rows if r[1]=="cached"); nt=sum(1 for r in rows if r[1]=="text"); nv=sum(1 for r in rows if r[1]=="vision")
 print(f"DOCS={len(rows)} CACHED={nc} TEXT={nt} VISION={nv} OUTDIR={outdir}")
 for r in rows: print("\t".join(r))
-PY
+PYEOF
 ```
 
 Manifest columns: `NN  mode(text|vision|cached)  source_abspath  text_path_or_dash  summary_relpath  cache_key`.
@@ -218,6 +228,9 @@ point (agy already did the reading). Only the two final files.
 - agy `--print` writes nothing to stdout outside a TTY (issue #76) — every agy call writes to a
   file; the subagent verifies the file exists. This command never relies on agy stdout.
 - 1 document per agy call (large multimodal batches time out), up to 10 calls per wave (see Phase 1).
+- **Large scanned PDFs are chunked**: a scanned/vision PDF over ~20 pages is split into 15-page
+  sub-PDFs (in `_chunks/`), each summarized separately as `NN-<slug>-pSTART-END` — avoids the
+  single-call timeout on big scans. Text-layer PDFs are not chunked (compact enough for one call).
 - **Incremental**: re-running the same folder + objective only re-summarizes new/changed documents
   (cache in `_cache.tsv`, keyed by size+mtime+objective hash). Change the objective → full re-sweep.
 - **Model routing** is automatic (Flash Low for the per-doc sweep, 3.1 Pro Low for the synthesis,

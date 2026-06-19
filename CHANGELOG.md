@@ -4,6 +4,15 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.8] — 2026-06-19
+
+### Fixed
+
+- **`/agy:notebook` no longer chokes on a single very large scanned PDF.** A scanned (vision) PDF
+  over ~20 pages is now split into 15-page sub-PDF chunks (`_chunks/`), each summarized in its own
+  agy vision call — previously a 100+ page scan was sent as one call and timed out. Text-layer PDFs
+  are unaffected (compact enough for a single call). Verified on a 184-page expediente → 13 chunks.
+
 ## [0.6.7] — 2026-06-19
 
 NotebookLM corpus Q&A + two extra briefing artifacts.
