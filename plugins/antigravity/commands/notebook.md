@@ -67,10 +67,9 @@ for r in rows: print("\t".join(r))
 PY
 ```
 
-## Phase 1 — Per-document summaries (fan out agy)
+## Phase 1 — Per-document summaries (fan out agy, with rate-limit-aware retry)
 
-For each manifest row, spawn an `antigravity:agy-rescue` subagent in **MODE: notebook**, in
-**batches of 3-4 concurrent** (one message with multiple Agent calls per batch). Pass:
+Fan out one `antigravity:agy-rescue` subagent in **MODE: notebook** per document. Pass:
 
 ```
 MODE: notebook
@@ -84,17 +83,37 @@ USER_TEXT:
 (empty)
 ```
 
-If a subagent reports failure/timeout for a doc, do NOT abort. Write a stub yourself
-(`Write`) to that doc's `WRITE_FILE`:
-```
----
-doc: <basename>
-estado: no_procesado
-relevancia: 0
----
-No se pudo procesar (timeout o error de agy). Reintentar con /agy:notebook sobre este doc.
-```
-and continue with the rest.
+**Concurrency — up to 10 per wave, with rate-limit backoff.** Each subagent runs its own `agy`
+process. agy is rate-limited per minute (RPM) by the Antigravity account tier — roughly ~10 RPM on
+the free tier, higher on Pro/Ultra. So fire a wave of **up to 10 Agent calls in one message**, but
+treat a wide wave as "best effort": if the account is throttled, some calls come back with **no
+output file** (HTTP 429) — that is **rate-limiting, not a per-document failure**. Do NOT stub those
+immediately. This mirrors how batch LLM pipelines work (a concurrency cap + retry/backoff, not
+blind parallelism). On a Pro/Ultra tier the retries below rarely fire; on free they smooth over the
+~10 RPM ceiling.
+
+**Drive it as retry rounds** (don't trust the subagents' self-reports; trust the files on disk):
+
+1. **Round 1** — spawn waves of up to 10 until every manifest doc has been dispatched once.
+2. **Check** (ONE Bash call): for every `summary_relpath`, test the file exists AND is non-empty
+   (`test -s`). Collect the `missing` list.
+3. **Retry rounds (up to 2)** — if `missing` is non-empty, **wait ~60s** (one `sleep 60` — lets the
+   per-minute quota reset), then re-dispatch only the `missing` docs in waves of up to 10, and
+   re-check. Repeat at most twice.
+4. **Stub the rest** — only after the retry rounds, for any doc still missing/empty write a stub
+   yourself (`Write`) to its `WRITE_FILE`:
+   ```
+   ---
+   doc: <basename>
+   estado: no_procesado
+   relevancia: 0
+   ---
+   No se pudo procesar tras reintentos (timeout o rate-limit de agy). Reintentar con /agy:notebook.
+   ```
+
+> The per-minute ceiling is the real limiter, not local CPU — pushing concurrency far past ~10 just
+> produces more 429s, not more throughput. 10-per-wave + the 60s backoff between retry rounds is the
+> sweet spot on the free tier. (A paid Antigravity tier with higher RPM could raise the wave size.)
 
 ## Phase 2 — Index + master synthesis (ONE agy subagent)
 
@@ -125,5 +144,11 @@ point (agy already did the reading). Only the two final files.
 ## Notes
 - agy `--print` writes nothing to stdout outside a TTY (issue #76) — every agy call writes to a
   file; the subagent verifies the file exists. This command never relies on agy stdout.
-- 1 document per agy call (large multimodal batches time out).
+- 1 document per agy call (large multimodal batches time out), up to 10 calls per wave (see Phase 1).
+- **Speed tip — pick a low-effort model.** These per-document summaries don't need deep reasoning,
+  so a faster model makes the whole sweep cheaper and quicker. agy uses whatever model is selected
+  in its TUI (run `agy`, "Switch Model"), which persists in `~/.gemini/antigravity-cli/settings.json`
+  (`"model": "..."`) and is honored by `--print`. **`Gemini 3.5 Flash (Low)`** is a good default for
+  the sweep; bump to a Pro/High model only if a corpus needs deeper synthesis. No per-call `--model`
+  flag is needed — the persisted selection applies automatically.
 - The `_text/` and `_manifest.tsv` are intermediate artifacts; they can be deleted after.

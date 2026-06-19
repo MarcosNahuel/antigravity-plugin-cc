@@ -4,6 +4,29 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.5] — 2026-06-19
+
+`/agy:notebook` throughput + a model-selection note.
+
+### Changed
+
+- **`/agy:notebook` Phase 1 now fans out up to 10 documents per wave with rate-limit-aware retry**
+  (was 3-4). agy is throttled per minute by the Antigravity account tier (~10 RPM free, higher on
+  Pro/Ultra), so a wide wave is treated as best-effort: docs that come back without an output file
+  are assumed rate-limited (429), not failed, and are re-dispatched in up to 2 retry rounds with a
+  ~60s backoff (lets the per-minute quota reset) before being stubbed as `no_procesado`. This is the
+  standard batch-LLM pattern (concurrency cap + backoff) rather than blind parallelism.
+
+### Added
+
+- **Model-selection note in `/agy:notebook`.** The per-document summaries don't need deep reasoning,
+  so a low-effort model speeds up (and cheapens) the whole sweep. agy honors the model picked in its
+  TUI (`agy` → "Switch Model"), which persists to `~/.gemini/antigravity-cli/settings.json`
+  (`"model": "..."`) and applies to `--print` automatically — no per-call `--model` flag needed.
+  `Gemini 3.5 Flash (Low)` is a good default for the sweep. (Note: agy's `--model <id>` flag silently
+  falls back to the default when the id isn't in the account's known-model list, so the TUI selection
+  is the reliable way to switch.)
+
 ## [0.6.4] — 2026-06-19
 
 Adds a local NotebookLM and corrects the setup health-check's auth diagnosis.
