@@ -2,6 +2,8 @@
 
 > **A local NotebookLM — and 12 more commands — for Claude Code, powered by Google Antigravity (`agy` / Gemini 3.x), the official CLI that replaces the now-deprecated `gemini-cli`. Read whole folders of documents, transcribe audio & video, and research the web with citations — locally, offloading the heavy reading to Gemini so it barely touches Claude's context.**
 
+**Project page:** [traidagency.com/labs/antigravity](https://traidagency.com/labs/antigravity) — built by [TRAID](https://traidagency.com).
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-7c3aed)](https://docs.claude.com/en/docs/claude-code/plugins)
 [![Antigravity CLI](https://img.shields.io/badge/Google-Antigravity%20CLI-4285F4)](https://antigravity.google)
@@ -19,7 +21,7 @@
 
 **TL;DR** — `/agy:notebook <folder> | <objective>` turns a folder of documents into a **local NotebookLM**: one objective-driven summary per document, a relevance `INDEX.md`, a cited `RESUMEN_MAESTRO.md`, a `TIMELINE.md` and an `ENTIDADES.md` — then `/agy:notebook-ask` answers questions over them **with citations**. All the heavy reading runs in Gemini 3.x via `agy`, so it barely touches Claude's context. Plus **audio & video transcription** (`/agy:transcribe`, `/agy:media`), deep web research with citations, branded HTML reports, git-diff code review, doc-to-markdown, browser recording and more. **No Node.js runtime. No MCP gymnastics. Thirteen slash commands.**
 
-[**Install**](#install) · [**Slash commands**](#slash-commands) · [**Examples**](#usage-examples) · [**FAQ**](#faq) · [**Compare to alternatives**](#compared-to-alternatives)
+[**Install**](#install) · [**Slash commands**](#slash-commands) · [**Examples**](#usage-examples) · [**FAQ**](#faq) · [**Compare to alternatives**](#compared-to-alternatives) · [**Project page**](https://traidagency.com/labs/antigravity)
 
 > **Install — the canonical repo (accept no look-alikes):**
 >
