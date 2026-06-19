@@ -174,7 +174,7 @@ When this happens, agy exits 0 but the `WRITE_FILE` you instructed it to write *
 The slash command passes you a header block followed by the user's text:
 
 ```
-MODE: rescue|research|setup|record|scrape|doc-to-md|design-review|ask|review|report-analyze|report-generate|notebook|notebook-index|notebook-ask
+MODE: rescue|research|setup|record|scrape|doc-to-md|design-review|ask|review|report-analyze|report-generate|notebook|notebook-index|notebook-ask|notebook-group
 INTENSITY: low|medium|high          # only for research
 MODEL:                              # reserved for forward compat — agy 1.0.x ignores model overrides
 RESUME: true|false                  # add --continue if true
@@ -220,6 +220,9 @@ ENTIDADES_FILE: <absolute path for ENTIDADES.md>
 # notebook-ask mode adds (answer a question from the existing summaries):
 SUMMARIES_DIR: <absolute dir containing the *.resumen.md files>
 PREGUNTA: <the user's question>
+# notebook-group mode adds (summarise a batch of one-page docs in one call):
+MEMBER_FILES: <pipe-joined member .txt paths>
+MEMBER_NAMES: <pipe-joined member display names>
 USER_TEXT:
 <the raw user request goes here>
 ```
@@ -677,6 +680,44 @@ Reads only the small `*.resumen.md` files — never the original documents.
 - After agy returns, verify `WRITE_FILE` exists and is non-empty (same WRITE_FILE check / recovery).
   Return its path and the answer to the caller.
 
+### Mode: notebook-group
+
+Summarise a **batch of short one-page documents** (providencias / pases de trámite) in a SINGLE
+agy call — `/agy:notebook` groups these to save calls/quota instead of one call per trivial doc.
+
+- Timeout: `6m0s`.
+- Always pass `--add-dir <CWD>`.
+- `MEMBER_FILES` is a `|`-joined list of extracted-text paths; `MEMBER_NAMES` the matching names.
+- Prompt template:
+
+  ```
+  Batch summary of short administrative documents. Output language: Spanish (es-AR).
+
+  Objetivo del caso: <OBJETIVO>
+
+  You are given several one-page administrative documents (providencias / pases de trámite).
+  Text files (pipe-separated): <MEMBER_FILES>
+  Names (pipe-separated, same order): <MEMBER_NAMES>
+
+  Read each file. Write ONE combined summary to this ABSOLUTE path: <WRITE_FILE>, with this shape:
+
+  ---
+  tipo: grupo de providencias / trámite
+  n_docs: <how many>
+  relevancia: <0-100 — the MAX relevance of any member to the objetivo>
+  ---
+  ## Documentos del grupo
+  - **<name>** (numero_gde, fecha): <one-line síntesis oriented to the objetivo>
+    (one bullet per document, in the given order; "ilegible" if a date/number can't be read)
+  ## Relevancia conjunta
+  <1-2 sentences: do any of these matter for the objetivo, or are they pure routing/trámite?>
+
+  Do NOT invent. Do NOT print to chat. The written file is your only deliverable.
+  ```
+
+- After agy returns, verify `WRITE_FILE` exists and is non-empty (same WRITE_FILE check / recovery).
+  Return its path to the caller.
+
 ### Mode: design-review
 
 UX/visual audit using browser subagent + multimodal vision.
@@ -985,7 +1026,7 @@ cat "$OUT" 2>/dev/null
 
 ## Safety rules
 
-- One `Bash` call for the main `agy` invocation per attempt (mode `research`/`ask`/`review`/`scrape`/`doc-to-md`/`design-review`/`report-generate`/`notebook`/`notebook-index`/`notebook-ask` may retry once if the WRITE_FILE check detects the Windows rename bug — a second `Bash` call to agy is allowed only on retry, not for branching logic).
+- One `Bash` call for the main `agy` invocation per attempt (mode `research`/`ask`/`review`/`scrape`/`doc-to-md`/`design-review`/`report-generate`/`notebook`/`notebook-index`/`notebook-ask`/`notebook-group` may retry once if the WRITE_FILE check detects the Windows rename bug — a second `Bash` call to agy is allowed only on retry, not for branching logic).
 - The pre-flight `.tmp` sweep adds one Bash call before agy in every mode. The output-file check adds one Bash call after agy (test -s + optional log tail) in modes with WRITE_FILE.
 - **Response recovery is allowed when output is missing/empty** (issue #76): one Bash call to tail the log for triage, and one Bash call to run the transcript Plan B recovery. These are recovery calls, not exploration — only run them when stdout is empty or the WRITE_FILE check failed, never speculatively. `rescue` mode (no WRITE_FILE) may use these same two recovery calls when stdout comes back empty.
 - Mode `record` and `research` may use one additional `Bash` call for post-processing (file moves, ffmpeg) and one `Write` call to prepend frontmatter or append a hint. Mode `setup` may use one additional `Bash` call for the version/log check. Mode `ask` may use one Bash call before agy (mktemp) and one after (rm). Mode `review` may use one Bash call before (size check on DIFF_FILE + mktemp) and one after (rm of both temp dirs). Mode `report-generate` may use one Bash call for output dir setup and one after for image asset moves.

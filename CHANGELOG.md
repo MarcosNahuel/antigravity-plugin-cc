@@ -4,6 +4,23 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.9] — 2026-06-19
+
+### Added
+
+- **`/agy:notebook` groups one-page documents to save calls/quota.** When a folder has ≥3 single-page
+  text documents (typically *providencias* / routing *pases*), they are summarised together in a few
+  `notebook-group` calls (batches of 8) instead of one call each — one combined summary lists each
+  doc with its number, date and a one-line synthesis. Substantive and scanned documents are still
+  summarised individually. New `agy-rescue` MODE: `notebook-group`.
+
+### Notes
+
+- **`/agy:notebook` prompt-via-stdin (roadmap #7) was evaluated and dropped.** `agy --print` requires
+  the prompt as an argument and does not read it from stdin (a piped prompt with no arg exits 2), so
+  there is no clean stdin path without breaking every mode's invocation. The write_file contract
+  already keeps document *content* out of the process args; the prompt strings are not sensitive.
+
 ## [0.6.8] — 2026-06-19
 
 ### Fixed

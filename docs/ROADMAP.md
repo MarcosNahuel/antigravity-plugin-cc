@@ -97,7 +97,7 @@ Fuentes: búsqueda web 2026-06-19 (delegate-agy README, geminicli.com/extensions
 4. **notebook — routing por tipo de doc**: resúmenes por-doc con **Flash (Low)**; la síntesis final
    (`notebook-index`) con **3.1 Pro (Low)** (más calidad donde importa). Robar el patrón de delegate-agy.
 
-### Media — #5 (Q&A) y #8 (TIMELINE/ENTIDADES) ✅ HECHO en v0.6.7
+### Media — #5+#8 ✅ v0.6.7 · #6 ✅ v0.6.9 · #7 ❌ no viable (agy --print no lee stdin)
 5. **notebook — modo Q&A sobre el corpus** (`/agy:notebook-ask <carpeta> <pregunta>`): responder
    preguntas citando los `.resumen.md` (el chat de NotebookLM). Ya tenemos los resúmenes como índice.
 6. **notebook — agrupar docs chicos**: las providencias (PV) de 1 página son ruido; agruparlas en

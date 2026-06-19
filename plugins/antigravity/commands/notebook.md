@@ -33,8 +33,7 @@ import fitz  # PyMuPDF
 folder, outdir, objetivo = sys.argv[1], sys.argv[2], (sys.argv[3] if len(sys.argv) > 3 else "")
 os.makedirs(os.path.join(outdir, "_text"), exist_ok=True)
 objhash = hashlib.sha1(objetivo.strip().encode("utf-8")).hexdigest()[:8]
-MAXV, CHUNK = 20, 15   # a scanned PDF over MAXV pages is split into CHUNK-page sub-PDFs (one agy
-                       # vision call cannot OCR hundreds of pages — it would time out)
+MAXV, CHUNK, GROUP = 20, 15, 8   # scans >MAXV pages -> CHUNK-page subs; >=3 one-page text docs -> groups of GROUP
 cache_path = os.path.join(outdir, "_cache.tsv"); prev = {}
 if os.path.exists(cache_path):
     for ln in open(cache_path, encoding="utf-8"):
@@ -45,11 +44,11 @@ files = sorted(f for f in glob.glob(os.path.join(folder,"*")) if f.lower().endsw
 def slug(s):
     s = re.sub(r"[^a-z0-9]+","-", os.path.splitext(os.path.basename(s))[0].lower()).strip("-")
     return s[:60] or "doc"
-def mkrow(nn, mode, src, tpath, summ, key):     # apply incremental cache per output file
+def mkrow(nn, mode, src, tpath, summ, key):     # incremental cache per output file
     if os.path.exists(os.path.join(outdir, summ)) and prev.get(summ) == key:
         return (nn, "cached", src, "-", summ, key)
     return (nn, mode, src, tpath, summ, key)
-rows=[]
+rows=[]; small=[]   # small = (nn, txtpath, fullpath, name, key) for 1-page text docs (groupable)
 for i,f in enumerate(files,1):
     nn=f"{i:03d}"; sl=slug(f); st=os.stat(f); key=f"{st.st_size}:{int(st.st_mtime)}:{objhash}"
     is_pdf=f.lower().endswith(".pdf"); mode="vision"; tpath="-"; pages=0; d=None
@@ -69,13 +68,27 @@ for i,f in enumerate(files,1):
             sub=fitz.open(); sub.insert_pdf(d,from_page=startp,to_page=endp-1); sub.save(cpath); sub.close()
             summ=f"{nn}-{sl}-p{startp+1:03d}-{endp:03d}.resumen.md"
             rows.append(mkrow(nn,"vision",cpath,"-",summ,f"{key}:c{ci}"))
+    elif mode=="text" and is_pdf and pages==1:
+        small.append((nn, tpath, os.path.abspath(f), os.path.basename(f), key))   # group later
     else:
         rows.append(mkrow(nn,mode,os.path.abspath(f),tpath,f"{nn}-{sl}.resumen.md",key))
     if d is not None: d.close()
+# group 1-page text docs (providencias / pases de trámite) to save agy calls
+if len(small) >= 3:
+    for gi in range(0, len(small), GROUP):
+        batch=small[gi:gi+GROUP]; g=f"G{gi//GROUP+1:02d}"
+        members="|".join(t for _,t,_,_,_ in batch); names="|".join(n for _,_,_,n,_ in batch)
+        gkey=hashlib.sha1(("|".join(k for *_,k in batch)).encode()).hexdigest()[:12]
+        rows.append(mkrow(g,"group",members,names,f"_grupo-{g.lower()}.resumen.md",gkey))
+else:
+    for nn,t,full,n,key in small:
+        rows.append(mkrow(nn,"text",full,t,f"{nn}-{slug(n)}.resumen.md",key))
+rows.sort(key=lambda r: r[0])
 with open(os.path.join(outdir,"_manifest.tsv"),"w",encoding="utf-8") as m:
     for r in rows: m.write("\t".join(r)+"\n")
-nc=sum(1 for r in rows if r[1]=="cached"); nt=sum(1 for r in rows if r[1]=="text"); nv=sum(1 for r in rows if r[1]=="vision")
-print(f"DOCS={len(rows)} CACHED={nc} TEXT={nt} VISION={nv} OUTDIR={outdir}")
+nc=sum(1 for r in rows if r[1]=="cached"); nt=sum(1 for r in rows if r[1]=="text")
+nv=sum(1 for r in rows if r[1]=="vision"); ng=sum(1 for r in rows if r[1]=="group")
+print(f"DOCS={len(files)} ROWS={len(rows)} CACHED={nc} TEXT={nt} VISION={nv} GROUPS={ng} OUTDIR={outdir}")
 for r in rows: print("\t".join(r))
 PYEOF
 ```
@@ -109,8 +122,10 @@ PY
 
 ## Phase 1 — Per-document summaries (fan out agy, with rate-limit-aware retry)
 
-Dispatch only manifest rows whose mode is `text` or `vision` (**skip `cached`**). One
-`antigravity:agy-rescue` subagent in **MODE: notebook** per document. Pass:
+Dispatch manifest rows whose mode is `text` or `vision` to **MODE: notebook** (one subagent each,
+**skip `cached`**). Rows whose mode is **`group`** instead go to **MODE: notebook-group** (one
+subagent summarises a whole batch of one-page providencias in a single call — see below). Pass for
+MODE: notebook:
 
 ```
 MODE: notebook
@@ -119,6 +134,19 @@ OBJETIVO: <objective>
 INPUT_MODE: text|vision
 SOURCE_FILE: <source_abspath>          # the original doc (vision reads this)
 TEXT_FILE: <text_path or empty>        # extracted text (text mode reads this)
+WRITE_FILE: <OUTDIR>/<summary_relpath>
+USER_TEXT:
+(empty)
+```
+
+For a **`group`** row, pass instead (field 3 = `|`-joined member text paths, field 4 = `|`-joined names):
+
+```
+MODE: notebook-group
+CWD: <absolute current working dir>
+OBJETIVO: <objective>
+MEMBER_FILES: <pipe-joined member .txt paths>
+MEMBER_NAMES: <pipe-joined member display names>
 WRITE_FILE: <OUTDIR>/<summary_relpath>
 USER_TEXT:
 (empty)
