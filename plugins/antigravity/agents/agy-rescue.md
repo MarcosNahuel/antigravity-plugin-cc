@@ -253,10 +253,10 @@ One-shot quick prompt. Bypasses issue #76 by writing to a temp file (no `docs/` 
 
 - Build a temp output path with ONE Bash call BEFORE invoking agy:
   ```bash
-  TEMP_DIR="$(mktemp -d -t agy-ask-XXXXXX 2>/dev/null || mktemp -d)"
-  TEMP_FILE="$TEMP_DIR/answer.md"
-  echo "TEMP_FILE=$TEMP_FILE"
-  echo "TEMP_DIR=$TEMP_DIR"
+  # Mixed-mode path normalization (cygpath -m ensures agy.exe and bash/tools see the same path; no-op on Unix)
+  TEMP_DIR="$(mktemp -d "$(cygpath -u "${LOCALAPPDATA:-$HOME}/Temp" 2>/dev/null || echo "${TMPDIR:-/tmp}")/agy-ask-XXXXXX")"
+  TEMP_FILE="$(cygpath -m "$TEMP_DIR/answer.md" 2>/dev/null || echo "$TEMP_DIR/answer.md")"
+  echo "TEMP_FILE=$TEMP_FILE TEMP_DIR=$TEMP_DIR"
   ```
 - Default timeout: `5m0s`.
 - Build the prompt as the user's raw text with this tail appended:
@@ -286,10 +286,10 @@ Git diff code review. The slash command captures the diff into `DIFF_FILE` befor
   test -f "$DIFF_FILE" && wc -l "$DIFF_FILE" || echo "MISSING"
   ```
   If `MISSING`, return an error to the caller and stop.
-- Build a temp output path the same way as `ask`:
+- Build a temp output path the same way as `ask` (mixed-mode path normalization, see `ask`):
   ```bash
-  TEMP_DIR="$(mktemp -d -t agy-review-XXXXXX 2>/dev/null || mktemp -d)"
-  TEMP_FILE="$TEMP_DIR/review.md"
+  TEMP_DIR="$(mktemp -d "$(cygpath -u "${LOCALAPPDATA:-$HOME}/Temp" 2>/dev/null || echo "${TMPDIR:-/tmp}")/agy-review-XXXXXX")"
+  TEMP_FILE="$(cygpath -m "$TEMP_DIR/review.md" 2>/dev/null || echo "$TEMP_DIR/review.md")"
   ```
 - Default timeout: `8m0s` (code review with reasoning needs more headroom than `ask`).
 - Compose the prompt embedding the diff:
@@ -831,10 +831,10 @@ UX/visual audit using browser subagent + multimodal vision.
 Phase 1 of the `/agy:report` flow. Read the source markdown and match it against the canonical TRAID Design System catalog of 5 templates. Recommend the top 1-3 templates that best fit the content, return as JSON. The user picks one in Phase 3.
 
 - Default timeout: `3m0s` (matching against a fixed catalog is fast).
-- Build a temp output path:
+- Build a temp output path (mixed-mode path normalization, see `ask`):
   ```bash
-  TEMP_DIR="$(mktemp -d -t agy-analyze-XXXXXX 2>/dev/null || mktemp -d)"
-  TEMP_FILE="$TEMP_DIR/recommendations.json"
+  TEMP_DIR="$(mktemp -d "$(cygpath -u "${LOCALAPPDATA:-$HOME}/Temp" 2>/dev/null || echo "${TMPDIR:-/tmp}")/agy-analyze-XXXXXX")"
+  TEMP_FILE="$(cygpath -m "$TEMP_DIR/recommendations.json" 2>/dev/null || echo "$TEMP_DIR/recommendations.json")"
   ```
 - Build the prompt with the FULL catalog embedded:
 
@@ -939,7 +939,7 @@ Phase 1 of the `/agy:report` flow. Read the source markdown and match it against
   ```bash
   agy --dangerously-skip-permissions --add-dir "$(dirname "$SOURCE_FILE")" --add-dir "$TEMP_DIR" --print-timeout 3m0s --print "<wrapped prompt>" < /dev/null
   ```
-- After agy returns: apply the standard output-file existence check (see Known issue — Windows rename). If the JSON file exists, read it with the Read tool and return its content verbatim to the caller (caller will parse to drive Phase 3 AskUserQuestion).
+- After agy returns: apply the standard output-file existence check (see Known issue — Windows rename) against `$TEMP_FILE`. If the JSON file exists, read `$TEMP_FILE` with the Read tool and return its content verbatim to the caller (caller will parse to drive Phase 3 AskUserQuestion).
 - Cleanup: `rm -rf "$TEMP_DIR"`.
 
 ### Mode: report-generate
@@ -1063,7 +1063,11 @@ nothing to stdout when not a TTY, whether it worked or not. **Test with `write_f
 the file instead.** Use a writable temp dir via `--add-dir`:
 
 ```bash
-OUT="${TMPDIR:-/tmp}/agy_ping.txt"; LOG="${TMPDIR:-/tmp}/agy_ping.log"; rm -f "$OUT" "$LOG"
+# Mixed-mode path normalization (see ask)
+TMP_POSIX="$(cygpath -u "${LOCALAPPDATA:-$HOME}/Temp" 2>/dev/null || echo "${TMPDIR:-/tmp}")"
+OUT="$(cygpath -m "$TMP_POSIX/agy_ping.txt" 2>/dev/null || echo "$TMP_POSIX/agy_ping.txt")"
+LOG="$(cygpath -m "$TMP_POSIX/agy_ping.log" 2>/dev/null || echo "$TMP_POSIX/agy_ping.log")"
+rm -f "$OUT" "$LOG"
 agy --dangerously-skip-permissions --add-dir "$(dirname "$OUT")" --print-timeout 90s --log-file "$LOG" --print "Use the write_file tool to write exactly the word pong to the file $OUT . Write nothing else and use no other tools." < /dev/null
 cat "$OUT" 2>/dev/null
 ```
