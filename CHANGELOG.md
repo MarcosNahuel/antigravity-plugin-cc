@@ -4,6 +4,23 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] — 2026-06-22
+
+### Changed — `/agy:notebook` throughput at scale (multi-agent-designed + benchmarked)
+
+- **Batch ALL text documents, not just one-page providencias.** Phase 0 now greedily packs every
+  uncached text doc into groups of **≤4 docs / ≤24 000 chars** and one `MODE: notebook-group` agy
+  call summarizes the whole batch — writing **one summary file per member** (full per-doc
+  frontmatter, so `notebook-index` keeps full granularity). The binding cost at scale is agy
+  invocations-per-minute (≈10 RPM free tier), and batching cuts that count directly.
+  - Measured: a 15-doc mixed folder dropped from **15 → 6 agy invocations** (~2.5×; ~4× on
+    text-heavy corpora). One 4-doc batch call wrote 4 correct, independent summaries in **14.5 s**.
+- **Vision/scanned docs stay strictly 1-per-call** (OCR is slow; multimodal batches blow the timeout).
+- **Two dispatch queues** (text/group vs vision) so a slow OCR doc no longer head-of-line-blocks a
+  wave of fast text batches. `RPM` is a documented constant (10 free / raise on Pro).
+- Incremental cache now records one entry per member summary; group rows expand their pipe-lists in
+  the manifest and the cache rewrite.
+
 ## [0.7.1] — 2026-06-22
 
 ### Fixed
