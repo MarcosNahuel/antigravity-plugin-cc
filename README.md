@@ -105,6 +105,8 @@ grounded, **cited** work instead of re-reading summaries:
 For grounded *prose* instead of structured rows, use `/agy:notebook-ask`.
 
 > 📊 **How the local RAG works (visual):** [`docs/semantic-rag-explainer.html`](docs/semantic-rag-explainer.html) — what it is, how it saves tokens, keyword vs semantic (FTS5 + vectors fused with RRF).
+>
+> 🕸️ **Want a graph instead of/alongside the RAG?** [`integrations/graphify-agy/`](integrations/graphify-agy/) adds an **`agy-cli` backend to [Graphify](https://github.com/safishamsi/graphify)** so **Gemini (via agy) builds a knowledge graph off Claude's tokens**, and Claude reads it to reason. Validated end-to-end.
 
 ---
 
