@@ -4,6 +4,21 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] — 2026-06-22
+
+### Fixed
+
+- **`/agy:notebook` was ~4× slower than it should be.** When agy runs with its CWD inside the calling
+  git project, agy 1.0.10 registers it as a cascade "project" and sandboxes every `write_file`
+  artifact to `brain/<uuid>/`, then **rejects** the absolute summary path (`not a valid artifact
+  path`). The model then replans and retries 3-5× per document — a single 1-page providencia took
+  **43s and 5 model round-trips** instead of ~10s and 1 write. It also re-snapshotted the repo's
+  untracked files on every invocation. Fix: the `notebook`, `notebook-index`, `notebook-ask` and
+  `notebook-group` modes now run agy from a **neutral scratch CWD** (`mktemp -d`) and grant file
+  access with repeatable `--add-dir` for the read/write directories instead of `--add-dir <CWD>`.
+  Verified: clean CWD writes directly with **0 rejections in ~10s**. (Concurrency was never the
+  bottleneck — the per-document retry loop was.)
+
 ## [0.7.0] — 2026-06-19
 
 Audio & video — capabilities Claude Code does not have natively, offloaded to Gemini via `agy`.

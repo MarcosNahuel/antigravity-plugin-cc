@@ -575,7 +575,8 @@ One document → one **objective-driven** summary (NOT a faithful conversion). P
 `/agy:notebook` sweep (a local NotebookLM): the caller fans this out, one call per document.
 
 - Timeout: `6m0s` (single document, summary not full transcription).
-- Always pass `--add-dir <CWD>` so agy can read the input file and write the summary.
+- **Run agy from a NEUTRAL scratch CWD, not the project root** — `cd "$(mktemp -d 2>/dev/null || echo "$TEMP")"` (or any dir outside a git repo) right before invoking agy. Running with the CWD inside the calling git project makes agy 1.0.10 register it as a cascade "project" and **sandbox every `write_file` to `brain/<uuid>/`, then REJECT the absolute output path** ("not a valid artifact path") → the model replans/retries 3-5× per document (~4× slower) and also snapshots the repo's untracked files on startup. A neutral CWD avoids both. **Verified:** clean CWD = 1 write, ~10s; project CWD = 5 round-trips, ~43s for the same 1-page doc.
+- **Grant file access with repeatable `--add-dir` (NOT `--add-dir <CWD>`):** pass `--add-dir "<dirname of the file agy READS>"` **and** `--add-dir "<dirname of WRITE_FILE>"` (in `text` mode both are under the notebook output dir, so one suffices; in `vision` mode add the source document's folder too).
 - The file agy must READ depends on `INPUT_MODE`:
   - `text` → `<TEXT_FILE>` (already-extracted plain text; cheaper/faster than vision).
   - `vision` → `<SOURCE_FILE>` (scanned PDF / image; agy uses multimodal OCR).
@@ -619,7 +620,7 @@ All per-document summaries → a relevance **index** + a cited **master synthesi
 run after the whole sweep. Reads only the small `*.resumen.md` files.
 
 - Timeout: `8m0s`.
-- Always pass `--add-dir <CWD>`.
+- **Run agy from a neutral scratch CWD** (`cd "$(mktemp -d)"`), not the project root — see the rationale under `Mode: notebook` (project CWD → `brain/` artifact sandbox → write rejected → slow retries). Grant access with `--add-dir "<SUMMARIES_DIR>"` (it holds both the `*.resumen.md` inputs and the four output files); do NOT pass `--add-dir <CWD>`.
 - Prompt template:
 
   ```
@@ -667,7 +668,7 @@ Answer a question from the existing per-document summaries (the "chat" over a no
 Reads only the small `*.resumen.md` files — never the original documents.
 
 - Timeout: `5m0s`.
-- Always pass `--add-dir <CWD>`.
+- **Run agy from a neutral scratch CWD** (`cd "$(mktemp -d)"`), not the project root — see `Mode: notebook` (project CWD → `brain/` artifact sandbox → write rejected → slow retries). Grant access with `--add-dir "<SUMMARIES_DIR>"` (holds the `*.resumen.md` inputs and the answer file); do NOT pass `--add-dir <CWD>`.
 - Prompt template:
 
   ```
@@ -696,7 +697,7 @@ Summarise a **batch of short one-page documents** (providencias / pases de trám
 agy call — `/agy:notebook` groups these to save calls/quota instead of one call per trivial doc.
 
 - Timeout: `6m0s`.
-- Always pass `--add-dir <CWD>`.
+- **Run agy from a neutral scratch CWD** (`cd "$(mktemp -d)"`), not the project root — see `Mode: notebook` (project CWD → `brain/` artifact sandbox → write rejected → slow retries). Grant access with `--add-dir "<dirname of WRITE_FILE>"` (the notebook output dir, which also holds the `_text/` member files); do NOT pass `--add-dir <CWD>`.
 - `MEMBER_FILES` is a `|`-joined list of extracted-text paths; `MEMBER_NAMES` the matching names.
 - Prompt template:
 
