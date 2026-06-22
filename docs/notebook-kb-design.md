@@ -65,14 +65,22 @@ seed-liquidation that `gen_liquidacion_*.py` consume).
 
 ## Roadmap
 
-| Phase | Deliverable | Effort |
-|---|---|---|
-| **1** | Structured `.facts.json` sidecars + `notebook_db.py` loader + Phase 2.5 wiring + DDL | M |
-| **2** | `/agy:notebook-query` + `skills/notebook-kb/SKILL.md` + agy-prompting blocks | M |
-| 3 | Opt-in `--semantic`: sqlite-vec + Gemini embeddings, hybrid FTS5+vector (RRF) | L |
-| 4 | `--background` sweeps + `/agy:notebook-status` job records (200-page expedientes) | M |
-| 5 | Opt-in grounding Stop-hook + `/agy:notebook-audit` → CONTRADICCIONES.md | L |
-| 6 | (speculative) Neon cross-session upsert of the KB into `dge_acuerdos` | S |
+| Phase | Deliverable | Effort | Status |
+|---|---|---|---|
+| **1** | Structured `.facts.json` sidecars + `notebook_db.py` loader + Phase 2.5 wiring + DDL | M | ✅ v0.8.0 |
+| **2** | `/agy:notebook-query` + `skills/notebook-kb/SKILL.md` | M | ✅ v0.8.0 |
+| 3 | Opt-in `--semantic`: sqlite-vec + Gemini embeddings, hybrid FTS5+vector (RRF) | L | ✅ v0.9.0 |
+| 4 | `--background` sweeps + `/agy:notebook-status` job records (200-page expedientes) | M | ✅ v0.11.0 |
+| 5 | `/agy:notebook-audit` → CONTRADICCIONES.md (grounding Stop-hook deferred) | L | ✅ v0.10.0 |
+| 6 | (opt-in) Neon export of the KB to a dedicated `nbkb` schema for cross-expediente SQL | S | ✅ v0.11.0 |
+
+> **All roadmap phases implemented (2026-06-22).** Phase 4 = `scripts/notebook_job.py` (init/sync/status)
+> + `/agy:notebook-status`; cooperative "background" (state persisted every wave, resumable via the
+> incremental cache — no daemon). Phase 6 = `scripts/notebook_neon.py` emits idempotent Postgres SQL
+> (`nbkb` schema, keyed by notebook+basename) to run via the Neon MCP; chosen over auto-upsert into
+> `dge_acuerdos` to avoid coupling — the local `notebook.db` already serves single-expediente queries,
+> so Neon is only for cross-folder aggregation. The opt-in grounding Stop-hook from Phase 5 stays
+> deferred (loop-risk; the citation contract in the skill covers most of its value).
 
 ## Key risks & mitigations
 

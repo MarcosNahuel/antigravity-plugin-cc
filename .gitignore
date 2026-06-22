@@ -14,3 +14,7 @@ notebook.db-wal
 notebook.db-shm
 *.facts.json
 _facts_errors.log
+
+# notebook job records + neon export (disposable)
+.jobs/
+nbkb_export.sql

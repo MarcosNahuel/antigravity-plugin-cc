@@ -1,6 +1,6 @@
 ---
 description: Local NotebookLM over a FOLDER of documents using Antigravity (agy). Sweeps each document (PDF with text, scanned PDF, image, docx) into an objective-driven Markdown summary, then builds a relevance INDEX and a cited master summary. Incremental cache (re-runs only re-summarize changed docs / changed objective) and automatic model routing (Flash for the sweep, Pro for the synthesis). Offloads all heavy reading to agy. Saves to docs/agy/notebook/.
-argument-hint: "<folder> | <objective> [--semantic]"
+argument-hint: "<folder> | <objective> [--semantic] [--background]"
 context: fork
 allowed-tools: Bash, Read, Write, Agent
 ---
@@ -186,6 +186,21 @@ a slow OCR/vision doc gating a wave of fast text batches (head-of-line blocking)
 
 Fire each wave as multiple Agent calls in ONE message. A throttled call comes back with **no output
 file** (HTTP 429) — that is **rate-limiting, not a per-document failure**; do NOT stub it immediately.
+
+**Job record (for `--background` / long expedientes).** Right before Round 1, initialise a job record
+so the sweep is observable + resumable; refresh it after each check:
+
+```bash
+python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/notebook_job.py" init "$OUTDIR" "$OBJETIVO"
+# ... after each retry-round check:
+python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/notebook_job.py" sync "$OUTDIR"
+```
+
+If the user passed `--background` (strip it in Phase 0), tell them up front: *"barriendo N documentos en
+segundo plano — consultá el avance con `/agy:notebook-status <folder>`; es resumible si se interrumpe"*,
+then proceed. There is no daemon — "background" means the state is persisted every wave, so an
+interrupted run resumes on the next `/agy:notebook` (cached docs are skipped). `/agy:notebook-status`
+reads the job record for a progress + ETA report.
 
 **Drive it as retry rounds** (don't trust the subagents' self-reports; trust the files on disk). Note
 a `group` row covers several summary files — expand its column-5 pipe list when checking:

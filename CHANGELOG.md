@@ -4,6 +4,24 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] — 2026-06-22
+
+### Added — KB roadmap Phases 4 & 6 (all roadmap phases now complete)
+
+- **Phase 4 — background sweeps + status.** `scripts/notebook_job.py` (init/sync/status) keeps a job
+  record (`<OUTDIR>/.jobs/current.json`) tracking per-document progress; **`/agy:notebook-status
+  <folder>`** reports % complete, done/pending/failed, elapsed + ETA, and which docs are pending.
+  `/agy:notebook … --background` announces a resumable sweep. "Background" is cooperative — state is
+  persisted every wave and the incremental cache resumes an interrupted run; no daemon. Validated on
+  synthetic manifests (75% → 100% transitions, group pipe-list expansion, failed/pending detection).
+- **Phase 6 — Neon export (opt-in).** `scripts/notebook_neon.py` emits idempotent Postgres SQL
+  (utf-8 `nbkb_export.sql`, a dedicated `nbkb` schema keyed by notebook+basename) to run via the Neon
+  MCP for cross-expediente querying. Chosen over auto-upsert into `dge_acuerdos` to avoid coupling;
+  the local `notebook.db` already serves single-expediente queries. Validated (idempotent DELETEs,
+  balanced quoting, isolated schema).
+- 19 slash commands. The opt-in grounding Stop-hook from Phase 5 stays deferred (loop-risk; the
+  skill's citation contract covers most of its value).
+
 ## [0.10.0] — 2026-06-22
 
 ### Added — video vision + notebook contradiction audit (Phase 5)

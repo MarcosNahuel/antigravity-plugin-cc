@@ -63,6 +63,17 @@ add a vector layer: build with `/agy:notebook <folder> | <objetivo> --semantic` 
 fallback). Then `/agy:notebook-query` fuses keyword + vector ranking with RRF to find the right
 documents. If semantic isn't built, keyword + structured SQL already answer most aggregate/lookup work.
 
+## Long sweeps & cross-session (Phases 4 & 6)
+
+- **Long expedientes** — run `/agy:notebook <folder> | <objetivo> --background` and check progress with
+  `/agy:notebook-status <folder>` (% done, ETA, pending docs). The sweep persists state every wave, so
+  it's resumable: just re-run `/agy:notebook` and cached docs are skipped. No daemon.
+- **Cross-expediente in Neon (opt-in)** — to query MANY expedientes together, export one KB to
+  Postgres SQL with `scripts/notebook_neon.py <OUTDIR> <notebook_name>` (writes `nbkb_export.sql`, a
+  dedicated `nbkb` schema that does NOT touch `dge_acuerdos`), then run it via the Neon MCP
+  (`mcp__neon__run_sql`). Only worth it for cross-folder aggregation; the local `notebook.db` already
+  answers single-expediente questions.
+
 ## Reliability notes
 
 - The DB is **disposable** (gitignored) and always rebuildable from the `.facts.json` sidecars; the
