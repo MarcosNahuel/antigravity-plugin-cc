@@ -1,6 +1,6 @@
 ---
 description: Local NotebookLM over a FOLDER of documents using Antigravity (agy). Sweeps each document (PDF with text, scanned PDF, image, docx) into an objective-driven Markdown summary, then builds a relevance INDEX and a cited master summary. Incremental cache (re-runs only re-summarize changed docs / changed objective) and automatic model routing (Flash for the sweep, Pro for the synthesis). Offloads all heavy reading to agy. Saves to docs/agy/notebook/.
-argument-hint: "<folder> | <objective>"
+argument-hint: "<folder> | <objective> [--semantic]"
 context: fork
 allowed-tools: Bash, Read, Write, Agent
 ---
@@ -247,6 +247,19 @@ python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/notebook_db.py" 
 `plugins/antigravity/scripts/notebook_db.py`.) It prints `BUILT db=… docs=N entities=M events=K
 errors=E`. If `errors>0`, `<OUTDIR>/_facts_errors.log` lists the quarantined sidecars (still queryable
 by frontmatter). The DB is disposable/gitignored; it rebuilds incrementally on every notebook run.
+
+**Optional semantic layer (`--semantic`).** If the user passed `--semantic` (strip it from the
+objective in Phase 0), ALSO run the embedder so `/agy:notebook-query` can do hybrid keyword+semantic
+retrieval. It needs `pip install sqlite-vec`; embeddings come from Gemini if a real `GEMINI_API_KEY`
+is set, else a keyword-ish lexical fallback (it says which). FTS5 keyword search always works without
+this step, so it's purely additive:
+
+```bash
+python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/notebook_embed.py" "$OUTDIR"
+```
+
+It prints `EMBEDDED chunks=N embedder=… dim=…`, or `SEMANTIC_UNAVAILABLE: pip install sqlite-vec`
+(then just skip it — the DB is fully usable with FTS5).
 
 ## Phase 2 — Index + master synthesis (switch model, then ONE agy subagent)
 

@@ -55,6 +55,14 @@ in the `/agy:notebook-query` command file — reuse those queries.
 - **Contradiction check (manual until /agy:notebook-audit ships)** → look for the same `concepto` with
   conflicting `monto_cents`, or a resolución cited but absent, or one DNI under two `nombre`s.
 
+## Semantic search (opt-in)
+
+By default retrieval is **FTS5 keyword** (always on, zero deps). For fuzzy/conceptual questions you can
+add a vector layer: build with `/agy:notebook <folder> | <objetivo> --semantic` (needs
+`pip install sqlite-vec`; real embeddings need a `GEMINI_API_KEY`, else a keyword-ish lexical
+fallback). Then `/agy:notebook-query` fuses keyword + vector ranking with RRF to find the right
+documents. If semantic isn't built, keyword + structured SQL already answer most aggregate/lookup work.
+
 ## Reliability notes
 
 - The DB is **disposable** (gitignored) and always rebuildable from the `.facts.json` sidecars; the

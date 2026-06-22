@@ -41,6 +41,49 @@ except Exception as e:
 PY
 ```
 
+## Phase 1b — Hybrid semantic retrieval (only if the DB was built with `--semantic`)
+
+If `meta` has an `embedder` row (i.e. `/agy:notebook … --semantic` ran and `sqlite-vec` is installed),
+a fuzzy/conceptual question can use **hybrid retrieval**: FTS5 keyword ranking + vector KNN, fused
+with Reciprocal Rank Fusion (RRF, k=60). The `vec0` KNN needs its `LIMIT` inside a CTE (not through a
+JOIN). Use this to FIND the relevant documents, then answer with the structured queries above.
+
+```bash
+python - "$OUTDIR/notebook.db" "$PREGUNTA" <<'PY'
+import sqlite3, sys, struct, re, hashlib, math, json
+db, q = sys.argv[1], sys.argv[2]
+con = sqlite3.connect("file:%s?mode=ro" % db, uri=True); con.row_factory = sqlite3.Row
+emb = con.execute("SELECT v FROM meta WHERE k='embedder'").fetchone()
+if not emb:
+    print("NO_SEMANTIC: build with /agy:notebook … --semantic first (FTS5 keyword search still works)"); raise SystemExit
+import sqlite_vec
+con.enable_load_extension(True); sqlite_vec.load(con)
+dim = int(con.execute("SELECT v FROM meta WHERE k='embed_dim'").fetchone()[0])
+# query vector: Gemini if a real key + 768-dim, else the lexical-hash fallback (matches the embedder)
+def hash_embed(t, d):
+    v=[0.0]*d
+    for tok in re.findall(r"\w+", t.lower()): v[int(hashlib.md5(tok.encode()).hexdigest(),16)%d]+=1.0
+    n=math.sqrt(sum(x*x for x in v)) or 1.0; return [x/n for x in v]
+key=__import__('os').environ.get('GEMINI_API_KEY','')
+if emb[0].startswith('gemini') and key and not key.startswith('$'):
+    import urllib.request
+    u=f"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key={key}"
+    r=urllib.request.Request(u,data=json.dumps({"model":"models/text-embedding-004","content":{"parts":[{"text":q}]}}).encode(),headers={"Content-Type":"application/json"})
+    qvec=json.load(urllib.request.urlopen(r,timeout=30))["embedding"]["values"]
+else:
+    qvec=hash_embed(q, dim)
+qv=struct.pack("%df"%dim, *qvec)
+fts=[r["doc_id"] for r in con.execute("SELECT c.doc_id FROM chunks_fts f JOIN chunks c ON c.id=f.rowid WHERE chunks_fts MATCH ? ORDER BY rank LIMIT 10",(re.sub(r'[^\w ]',' ',q),))]
+vec=[r["doc_id"] for r in con.execute("WITH knn AS (SELECT chunk_id,distance FROM vec_chunks WHERE embedding MATCH ? ORDER BY distance LIMIT 10) SELECT c.doc_id FROM knn JOIN chunks c ON c.id=knn.chunk_id ORDER BY knn.distance",(qv,))]
+s={}
+for rl in (fts,vec):
+    for rank,d in enumerate(dict.fromkeys(rl),1): s[d]=s.get(d,0)+1.0/(60+rank)
+order=sorted(s,key=lambda d:-s[d])
+docs=[dict(con.execute("SELECT id,numero_gde,tipo,basename,relevancia FROM documents WHERE id=?",(d,)).fetchone()) for d in order[:8]]
+print(json.dumps(docs, ensure_ascii=False, indent=2))
+PY
+```
+
 ## Phase 2 — Present (grounded + cited)
 
 Narrate the rows. **Cite every claim** by `numero_gde`/`basename`. For a SUM, list the contributing

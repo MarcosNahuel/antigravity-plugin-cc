@@ -4,6 +4,24 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] — 2026-06-22
+
+### Added — optional semantic layer for the notebook KB (`--semantic`, hybrid retrieval)
+
+Phase 3 of the knowledge-base roadmap. Purely additive and opt-in — FTS5 keyword search stays the
+always-on default with zero new deps.
+
+- **`plugins/antigravity/scripts/notebook_embed.py`** — embeds every chunk into a `sqlite-vec` `vec0`
+  table. Embeddings from **Gemini REST** (`text-embedding-004`, 768-dim, batched, pure stdlib
+  `urllib`) when a real `GEMINI_API_KEY` is set; otherwise a stdlib **lexical-hash fallback** (256-dim,
+  keyword-ish, clearly labeled) so it runs with zero key. Requires `pip install sqlite-vec` (the only
+  new, opt-in dependency); prints `SEMANTIC_UNAVAILABLE` and no-ops if absent.
+- **`/agy:notebook <folder> | <objetivo> --semantic`** runs the embed step in Phase 1.5 after the DB build.
+- **`/agy:notebook-query`** gains a hybrid path: FTS5 keyword ranking + `vec0` vector KNN fused with
+  **Reciprocal Rank Fusion** (RRF, k=60) to find relevant docs for fuzzy/conceptual questions, then
+  answers with the structured cited queries. Validated end-to-end on a real `notebook.db`
+  (sqlite-vec v0.1.9): vec0 KNN + RRF return the expected ranking.
+
 ## [0.8.0] — 2026-06-22
 
 ### Added — notebook becomes a queryable knowledge base (multi-agent designed + benchmarked)
