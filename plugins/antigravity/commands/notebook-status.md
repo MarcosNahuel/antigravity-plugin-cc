@@ -1,12 +1,12 @@
 ---
-description: Check the progress of a /agy:notebook sweep (for long expedientes run with --background). Reports % complete, done/pending/failed counts, elapsed time and a rough ETA, and which documents are still pending — so you can resume. Read-only, no agy.
+description: Check the progress of a /agy:notebook sweep (for long document sets run with --background). Reports % complete, done/pending/failed counts, elapsed time and a rough ETA, and which documents are still pending — so you can resume. Read-only, no agy.
 argument-hint: "<folder>"
 context: fork
 allowed-tools: Bash, Read
 ---
 
 Report the status of a notebook sweep without re-running it. Useful for a long, `--background` sweep
-over a 200-page expediente: the job record (`<OUTDIR>/.jobs/current.json`) tracks per-document
+over a 200-page document set: the job record (`<OUTDIR>/.jobs/current.json`) tracks per-document
 progress derived from the manifest + the summary files on disk.
 
 Raw user request:

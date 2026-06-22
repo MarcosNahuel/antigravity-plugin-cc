@@ -82,8 +82,8 @@ https://github.com/MarcosNahuel/antigravity-plugin-cc
 
 ## LinkedIn (optional, more formal)
 
-I just open-sourced **Antigravity Plugin** — a *local NotebookLM* for Claude Code.
+I just open-sourced **Antigravity Plugin** — a *local NotebookLM replacement* and capability pack for Claude Code.
 
-It bridges Claude Code to Google's Antigravity CLI (Gemini 3.x, multimodal): point `/agy:notebook` at a folder of documents and it returns per-document summaries, a relevance index, a cited master synthesis, a timeline and an entity sheet — keeping the heavy document reading off Claude's own context. It also transcribes audio/video, does web research, records browser walkthroughs, and reviews designs.
+It bridges Claude Code to Google's Antigravity CLI (Gemini 3.x, multimodal): point `/agy:notebook` at a folder of documents and it returns per-document summaries, a relevance index, a cited master synthesis, a timeline and an entity sheet — keeping the heavy document reading in Gemini, off Claude's own context, so you save tokens. It also adds capabilities Claude Code lacks natively: transcribing audio/video, media Q&A, web research with citations, browser walkthrough recording, and design review.
 
-MIT, no Node runtime. https://github.com/MarcosNahuel/antigravity-plugin-cc
+19 commands. MIT, no Node runtime. https://github.com/MarcosNahuel/antigravity-plugin-cc

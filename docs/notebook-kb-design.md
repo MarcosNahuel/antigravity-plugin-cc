@@ -3,18 +3,24 @@
 > Upgrade `/agy:notebook` from "a pile of markdown summaries" into a **specialized, queryable
 > SQLite database** that Claude Code does *work* against — grounded, cited, deterministic.
 > No Node runtime; agy extracts, Python stdlib (`sqlite3` + `re` + `json`) compiles & queries.
+>
+> Part of the **Antigravity Plugin** — a local NotebookLM replacement and capability pack for
+> Claude Code. The heavy reading of a whole folder of documents (and building the RAG over it)
+> runs in Google's Antigravity CLI (agy / Gemini 3.x, multimodal); Claude Code stays lean and
+> you save tokens.
 
 ## Vision
 
 The same single agy pass that writes `NN-slug.resumen.md` (human layer) ALSO emits a strict
 `NN-slug.facts.json` sidecar (machine layer). A pure-Python loader compiles every sidecar into one
 `notebook.db` per notebook folder: `documents / chunks / entities / events / relations / citations`
-+ an FTS5 index. Every fact row carries `doc_id + quote + cita`, so amounts, DNIs, expedientes,
-fechas, resoluciones, escuelas become exact SQL rows traceable to a document. For DGE expedientes:
-*"sumá los montos del EX-…", "qué docs mencionan el DNI …", "timeline del caso", "armá la
-liquidación desde el notebook"* become deterministic queries (monto math in integer **cents**, no
-float drift) that feed the existing `gen_liquidacion_*.py` generators — instead of manual
-transcription from hundreds of fojas.
++ an FTS5 index. Every fact row carries `doc_id + quote + cita`, so personas, organizaciones,
+montos, fechas, and referencias become exact SQL rows traceable to a document. Over a folder of
+research papers / contracts / meeting notes / an RFP / a book's chapters:
+*"sum the amounts by category", "which docs mention 'Acme Corp'", "build a project timeline",
+"what are the open questions"* become deterministic queries (monto math in integer **cents**, no
+float drift) that downstream tools and reports can consume — instead of manual transcription from
+hundreds of pages.
 
 Properties: **incremental** (sidecars share the `size:mtime:objhash` cache key), **offline-first**
 (FTS5 + regex always-on; vectors opt-in), **zero-regression** (the `.md` and `notebook-ask` are
@@ -31,8 +37,8 @@ _facts_errors.log      (NEW — quarantined bad/missing sidecars)
 ```
 
 **SQLite schema** (`schema_ver=1`): `documents, chunks, entities, events, relations, citations` +
-`chunks_fts` (FTS5, `unicode61 remove_diacritics 2` for es-AR) + dedup-at-query views
-(`v_personas, v_montos, v_expedientes, v_resoluciones, v_escuelas, v_timeline`). Full DDL lives in
+`chunks_fts` (FTS5, `unicode61 remove_diacritics 2` for multilingual corpora) + dedup-at-query views
+(`v_personas, v_organizaciones, v_montos, v_fechas, v_referencias, v_timeline`). Full DDL lives in
 `plugins/antigravity/scripts/notebook_db.py`. Monetary values are **`monto_cents INTEGER`**.
 
 **Build pipeline** — `notebook.md` Phase 2.5 (after the sweep): one Bash→Python call to
@@ -48,9 +54,9 @@ the shipped SCHEMA + recetas cookbook, runs it, narrates rows **with citations**
 
 **Skill** — `skills/notebook-kb/SKILL.md` (user-invocable): decision gate (build only for
 structured/aggregate/grounding tasks), the query wrapper, the recetas library, the **citation
-contract** (every claim cites `numero_gde + summary_md_path`; SUMs list contributing rows; 0 rows →
-"no aparece en el corpus", never invent), and downstream workflows (entity roster / timeline /
-seed-liquidation that `gen_liquidacion_*.py` consume).
+contract** (every claim cites `doc_ref + summary_md_path`; SUMs list contributing rows; 0 rows →
+"does not appear in the corpus", never invent), and downstream workflows (entity roster / timeline /
+amounts-by-category export that other tools consume).
 
 ## Integrations adopted
 
@@ -70,22 +76,22 @@ seed-liquidation that `gen_liquidacion_*.py` consume).
 | **1** | Structured `.facts.json` sidecars + `notebook_db.py` loader + Phase 2.5 wiring + DDL | M | ✅ v0.8.0 |
 | **2** | `/agy:notebook-query` + `skills/notebook-kb/SKILL.md` | M | ✅ v0.8.0 |
 | 3 | Opt-in `--semantic`: sqlite-vec + Gemini embeddings, hybrid FTS5+vector (RRF) | L | ✅ v0.9.0 |
-| 4 | `--background` sweeps + `/agy:notebook-status` job records (200-page expedientes) | M | ✅ v0.11.0 |
+| 4 | `--background` sweeps + `/agy:notebook-status` job records (200-page folders) | M | ✅ v0.11.0 |
 | 5 | `/agy:notebook-audit` → CONTRADICCIONES.md (grounding Stop-hook deferred) | L | ✅ v0.10.0 |
-| 6 | (opt-in) Neon export of the KB to a dedicated `nbkb` schema for cross-expediente SQL | S | ✅ v0.11.0 |
+| 6 | (opt-in) Neon export of the KB to a dedicated `nbkb` schema for cross-folder SQL | S | ✅ v0.11.0 |
 
 > **All roadmap phases implemented (2026-06-22).** Phase 4 = `scripts/notebook_job.py` (init/sync/status)
 > + `/agy:notebook-status`; cooperative "background" (state persisted every wave, resumable via the
 > incremental cache — no daemon). Phase 6 = `scripts/notebook_neon.py` emits idempotent Postgres SQL
-> (`nbkb` schema, keyed by notebook+basename) to run via the Neon MCP; chosen over auto-upsert into
-> `dge_acuerdos` to avoid coupling — the local `notebook.db` already serves single-expediente queries,
-> so Neon is only for cross-folder aggregation. The opt-in grounding Stop-hook from Phase 5 stays
+> (`nbkb` schema, keyed by notebook+basename) to run via the Neon MCP; chosen over auto-upsert into any
+> existing application schema to avoid coupling — the local `notebook.db` already serves single-folder
+> queries, so Neon is only for cross-folder aggregation. The opt-in grounding Stop-hook from Phase 5 stays
 > deferred (loop-risk; the citation contract in the skill covers most of its value).
 
 ## Key risks & mitigations
 
 - **agy JSON flakiness** → tolerant loader + last/largest-valid-JSON extraction + `.md` fallback; DB always buildable.
 - **Monto float drift** → `monto_cents INTEGER` everywhere; divide by 100 only for display.
-- **Silent coverage gaps** → keep `no_procesado` document rows with empty facts so queries report coverage honestly (legal defensibility).
-- **Hallucinated facts in a liquidation** → every row carries `quote + cita`; SUMs auditable row-by-row; opt-in grounding gate later.
+- **Silent coverage gaps** → keep `no_procesado` document rows with empty facts so queries report coverage honestly (trustworthy answers).
+- **Hallucinated facts in an aggregate** → every row carries `quote + cita`; SUMs auditable row-by-row; opt-in grounding gate later.
 - **No `sqlite3` CLI** (verified) → all access via Python heredoc, hard rule in command + skill.

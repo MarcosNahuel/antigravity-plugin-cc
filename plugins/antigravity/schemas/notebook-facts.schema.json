@@ -2,28 +2,41 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/MarcosNahuel/antigravity-plugin-cc/schemas/notebook-facts.schema.json",
   "title": "notebook facts sidecar",
-  "description": "Per-document structured fact sidecar emitted by agy MODE: notebook / notebook-group alongside the .resumen.md. Compiled into notebook.db by notebook_db.py. Every fact row should carry a short verbatim quote. Absent data => empty array; never invent.",
+  "description": "Per-document structured fact sidecar emitted by agy MODE: notebook / notebook-group alongside the .resumen.md. Compiled into notebook.db by notebook_db.py. Every fact row should carry a short verbatim quote. Absent data => empty array; never invent. General entity taxonomy: people, organizations, amounts, dates, references.",
   "type": "object",
   "additionalProperties": true,
   "required": ["doc"],
   "properties": {
     "doc": { "type": "string", "description": "original file basename" },
-    "tipo": { "type": "string", "description": "NO|IF|PV|RS|ACTO|nota|resolución|planilla…" },
-    "numero_gde": { "type": "string" },
+    "tipo": { "type": "string", "description": "document class, e.g. report | note | invoice | contract | email | slide-deck | paper | memo" },
+    "doc_ref": { "type": "string", "description": "the document's own reference / id number, if any" },
     "fecha": { "type": "string", "description": "YYYY-MM-DD or '' or 'ilegible'" },
-    "emisor": { "type": "string" },
+    "emisor": { "type": "string", "description": "author / issuer / sender" },
     "relevancia": { "type": "integer", "minimum": 0, "maximum": 100 },
     "sintesis": { "type": "string" },
     "datos_clave": { "type": "array", "items": { "type": "string" } },
     "personas": {
       "type": "array",
+      "description": "people mentioned",
       "items": {
         "type": "object",
         "properties": {
           "nombre": { "type": "string" },
-          "dni": { "type": "string", "description": "digits only" },
-          "cuil": { "type": "string" },
+          "dni": { "type": "string", "description": "any personal id, digits only (optional)" },
           "rol": { "type": "string" },
+          "quote": { "type": "string" }
+        },
+        "required": ["nombre"]
+      }
+    },
+    "organizaciones": {
+      "type": "array",
+      "description": "organizations / companies / institutions",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nombre": { "type": "string" },
+          "id": { "type": "string", "description": "any org id, if present" },
           "quote": { "type": "string" }
         },
         "required": ["nombre"]
@@ -31,12 +44,13 @@
     },
     "montos": {
       "type": "array",
+      "description": "monetary amounts",
       "items": {
         "type": "object",
         "properties": {
-          "importe": { "type": "string", "description": "as written, e.g. $1.234,56" },
+          "importe": { "type": "string", "description": "as written, e.g. $1,234.56" },
           "importe_cents": { "type": ["integer", "null"], "description": "integer cents — authoritative for math" },
-          "concepto": { "type": "string" },
+          "concepto": { "type": "string", "description": "what the amount is for (category)" },
           "fecha": { "type": "string" },
           "quote": { "type": "string" }
         }
@@ -44,53 +58,32 @@
     },
     "fechas": {
       "type": "array",
+      "description": "dated events / milestones",
       "items": {
         "type": "object",
         "properties": {
           "fecha": { "type": "string", "description": "YYYY-MM-DD" },
-          "hecho": { "type": "string" },
+          "hecho": { "type": "string", "description": "what happened on that date" },
           "quote": { "type": "string" }
         }
       }
     },
-    "expedientes": {
+    "referencias": {
       "type": "array",
+      "description": "any identifier or document/standard reference cited (ticket ids, case numbers, RFC/ISO standards, citations, invoice numbers, etc.)",
       "items": {
         "type": "object",
         "properties": {
-          "numero": { "type": "string" },
-          "caratula": { "type": "string" },
-          "quote": { "type": "string" }
-        }
-      }
-    },
-    "resoluciones": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "numero": { "type": "string" },
-          "organismo": { "type": "string" },
+          "valor": { "type": "string", "description": "the reference / id as written" },
+          "detalle": { "type": "string", "description": "what it refers to" },
           "fecha": { "type": "string" },
           "quote": { "type": "string" }
         }
       }
     },
-    "escuelas": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "nombre": { "type": "string" },
-          "cue": { "type": "string" },
-          "quote": { "type": "string" }
-        }
-      }
-    },
-    "organismos": { "type": "array", "items": { "type": "string" } },
-    "leyes": { "type": "array", "items": { "type": "string" } },
     "relaciones": {
       "type": "array",
+      "description": "subject-predicate-object relations between entities",
       "items": {
         "type": "object",
         "properties": {
@@ -103,6 +96,7 @@
     },
     "eventos": {
       "type": "array",
+      "description": "same as fechas; dated events with optional amount",
       "items": {
         "type": "object",
         "properties": {

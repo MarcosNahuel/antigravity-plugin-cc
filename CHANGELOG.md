@@ -4,6 +4,29 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] — 2026-06-22
+
+Stable 1.0 — repositioned as a **general-purpose NotebookLM replacement and capability pack for
+Claude Code that saves tokens** (the heavy reading runs in Gemini via `agy`, not in Claude's context).
+
+### Changed
+
+- **General entity taxonomy for the notebook RAG.** The knowledge base now extracts a general,
+  domain-agnostic set of entities — `persona | organizacion | monto | fecha | referencia` — instead
+  of any domain-specific types. Views renamed accordingly (`v_personas, v_organizaciones, v_montos,
+  v_referencias, v_fechas, v_timeline`); the document handle is `doc_ref`. The loader still accepts
+  legacy fact keys, so existing `notebook.db`s rebuild cleanly. Re-validated end-to-end (build +
+  all views + the audit) on the new taxonomy.
+- **Docs, examples and marketing repositioned** to the general framing (research papers, contracts,
+  meeting notes, RFPs, a book's chapters) — README, `llms.txt`, command/skill descriptions, design
+  docs and promo. Described as a NotebookLM replacement + token-saver, not tied to any one industry.
+
+### Added
+
+- **`docs/semantic-rag-explainer.html`** — a self-contained visual page explaining the local RAG: what
+  it is, how it saves tokens, and keyword (FTS5) vs semantic (vectors fused with RRF). Reusable for the
+  project page.
+
 ## [0.11.0] — 2026-06-22
 
 ### Added — KB roadmap Phases 4 & 6 (all roadmap phases now complete)
@@ -16,8 +39,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   synthetic manifests (75% → 100% transitions, group pipe-list expansion, failed/pending detection).
 - **Phase 6 — Neon export (opt-in).** `scripts/notebook_neon.py` emits idempotent Postgres SQL
   (utf-8 `nbkb_export.sql`, a dedicated `nbkb` schema keyed by notebook+basename) to run via the Neon
-  MCP for cross-expediente querying. Chosen over auto-upsert into `dge_acuerdos` to avoid coupling;
-  the local `notebook.db` already serves single-expediente queries. Validated (idempotent DELETEs,
+  MCP for cross-notebook querying. Chosen over auto-upsert into any application schema to avoid coupling;
+  the local `notebook.db` already serves single-folder queries. Validated (idempotent DELETEs,
   balanced quoting, isolated schema).
 - 19 slash commands. The opt-in grounding Stop-hook from Phase 5 stays deferred (loop-risk; the
   skill's citation contract covers most of its value).
@@ -32,8 +55,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   `MODE: video` in the subagent; output to `docs/agy/video/`. Validated end-to-end on a real YouTube
   video (accurate scene + OCR + key-moment breakdown in ~19s).
 - **`/agy:notebook-audit <folder>`** (KB roadmap Phase 5) — deterministic, read-only SQL audit over
-  `notebook.db` that finds the contradictions that matter for legal/administrative work: the same
-  concepto with conflicting amounts, the same DNI under two names, the same expediente with different
+  `notebook.db` that finds the contradictions that matter across a document corpus: the same
+  concepto with conflicting amounts, the same person under two names, the same reference with different
   values, coverage gaps (`no_procesado` docs), and unparseable amounts → writes `CONTRADICCIONES.md`.
   `scripts/notebook_audit.py`, pure stdlib. Validated on crafted contradictions (all six checks fire
   correctly, DNI normalized across name/format variants).
@@ -85,7 +108,7 @@ into a queryable **SQLite database** (`notebook.db`) so Claude Code does exact, 
 
 ### Changed — `/agy:notebook` throughput at scale (multi-agent-designed + benchmarked)
 
-- **Batch ALL text documents, not just one-page providencias.** Phase 0 now greedily packs every
+- **Batch ALL text documents, not just one-page docs.** Phase 0 now greedily packs every
   uncached text doc into groups of **≤4 docs / ≤24 000 chars** and one `MODE: notebook-group` agy
   call summarizes the whole batch — writing **one summary file per member** (full per-doc
   frontmatter, so `notebook-index` keeps full granularity). The binding cost at scale is agy
@@ -105,7 +128,7 @@ into a queryable **SQLite database** (`notebook.db`) so Claude Code does exact, 
 - **`/agy:notebook` was ~4× slower than it should be.** When agy runs with its CWD inside the calling
   git project, agy 1.0.10 registers it as a cascade "project" and sandboxes every `write_file`
   artifact to `brain/<uuid>/`, then **rejects** the absolute summary path (`not a valid artifact
-  path`). The model then replans and retries 3-5× per document — a single 1-page providencia took
+  path`). The model then replans and retries 3-5× per document — a single 1-page document took
   **43s and 5 model round-trips** instead of ~10s and 1 write. It also re-snapshotted the repo's
   untracked files on every invocation. Fix: the `notebook`, `notebook-index`, `notebook-ask` and
   `notebook-group` modes now run agy from a **neutral scratch CWD** (`mktemp -d`) and grant file
@@ -133,7 +156,7 @@ Audio & video — capabilities Claude Code does not have natively, offloaded to 
 ### Added
 
 - **`/agy:notebook` groups one-page documents to save calls/quota.** When a folder has ≥3 single-page
-  text documents (typically *providencias* / routing *pases*), they are summarised together in a few
+  short one-page text documents, they are summarised together in a few
   `notebook-group` calls (batches of 8) instead of one call each — one combined summary lists each
   doc with its number, date and a one-line synthesis. Substantive and scanned documents are still
   summarised individually. New `agy-rescue` MODE: `notebook-group`.
@@ -152,7 +175,7 @@ Audio & video — capabilities Claude Code does not have natively, offloaded to 
 - **`/agy:notebook` no longer chokes on a single very large scanned PDF.** A scanned (vision) PDF
   over ~20 pages is now split into 15-page sub-PDF chunks (`_chunks/`), each summarized in its own
   agy vision call — previously a 100+ page scan was sent as one call and timed out. Text-layer PDFs
-  are unaffected (compact enough for a single call). Verified on a 184-page expediente → 13 chunks.
+  are unaffected (compact enough for a single call). Verified on a 184-page document → 13 chunks.
 
 ## [0.6.7] — 2026-06-19
 
@@ -166,7 +189,7 @@ NotebookLM corpus Q&A + two extra briefing artifacts.
   the corpus to exist; saves a Q&A trail under `docs/agy/notebook/<folder>/_respuestas/`.
 - **`/agy:notebook` now also emits `TIMELINE.md` and `ENTIDADES.md`** alongside `INDEX.md` and
   `RESUMEN_MAESTRO.md`: a standalone chronological timeline, and extracted entities grouped as
-  Personas (with DNI/CUIL), Montos, Expedientes/resoluciones, and Escuelas/organismos — each with
+  Personas, Organizaciones, Montos, Fechas and Referencias — each with
   the document where it appears. NotebookLM-style briefing artifacts, grounded only in the summaries.
 
 ## [0.6.6] — 2026-06-19

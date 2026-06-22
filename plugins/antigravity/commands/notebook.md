@@ -187,7 +187,7 @@ a slow OCR/vision doc gating a wave of fast text batches (head-of-line blocking)
 Fire each wave as multiple Agent calls in ONE message. A throttled call comes back with **no output
 file** (HTTP 429) — that is **rate-limiting, not a per-document failure**; do NOT stub it immediately.
 
-**Job record (for `--background` / long expedientes).** Right before Round 1, initialise a job record
+**Job record (for `--background` / long sweeps).** Right before Round 1, initialise a job record
 so the sweep is observable + resumable; refresh it after each check:
 
 ```bash

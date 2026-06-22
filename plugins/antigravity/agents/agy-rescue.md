@@ -594,16 +594,16 @@ One document → one **objective-driven** summary (NOT a faithful conversion). P
 
   ---
   doc: <original file basename>
-  tipo: <document class if identifiable — e.g. NO, IF, PV, RS, ACTO, EXDIG, nota, resolución, planilla, foto…>
-  numero_gde: <GDE/expediente number if present, else "">
+  tipo: <document class if identifiable — e.g. report, note, invoice, contract, email, slide-deck, paper, memo, image…>
+  doc_ref: <document id / reference number if present, else "">
   fecha: <YYYY-MM-DD of the document, or "ilegible"/"" if none>
-  emisor: <issuing office / person, or "">
+  emisor: <author / issuer / sender, or "">
   relevancia: <integer 0-100 — how relevant THIS doc is to the objetivo>
   ---
   ## Síntesis
   <2-6 sentences focused on the objetivo: what this document contributes to it>
   ## Datos clave
-  - <citable facts: dates, amounts, resolution numbers, people, decisions — bullet list>
+  - <citable facts: dates, amounts, reference numbers, people, decisions — bullet list>
   ## Relevancia
   <1-2 sentences: why it is (or isn't) relevant to the objetivo>
 
@@ -611,19 +611,18 @@ One document → one **objective-driven** summary (NOT a faithful conversion). P
 
   THEN write a SECOND file — a machine-readable JSON fact sidecar — to the SAME path with
   `.resumen.md` replaced by `.facts.json`. Valid JSON, this exact shape (omit unknown fields or use
-  empty arrays; NEVER invent a DNI/monto/expediente):
-  {"doc":"<basename>","tipo":"<class>","numero_gde":"<num or ''>","fecha":"<YYYY-MM-DD or ''>",
-   "emisor":"<office or ''>","relevancia":<0-100>,"sintesis":"<…>","datos_clave":["<…>"],
-   "personas":[{"nombre":"","dni":"<digits only>","cuil":"","rol":"","quote":""}],
-   "montos":[{"importe":"$1.234,56","importe_cents":123456,"concepto":"","fecha":"","quote":""}],
+  empty arrays; NEVER invent a fact):
+  {"doc":"<basename>","tipo":"<class>","doc_ref":"<id or ''>","fecha":"<YYYY-MM-DD or ''>",
+   "emisor":"<author/issuer or ''>","relevancia":<0-100>,"sintesis":"<…>","datos_clave":["<…>"],
+   "personas":[{"nombre":"","dni":"<any id, digits only — optional>","rol":"","quote":""}],
+   "organizaciones":[{"nombre":"","id":"","quote":""}],
+   "montos":[{"importe":"$1,234.56","importe_cents":123456,"concepto":"<category>","fecha":"","quote":""}],
    "fechas":[{"fecha":"YYYY-MM-DD","hecho":"","quote":""}],
-   "expedientes":[{"numero":"EX-…","caratula":"","quote":""}],
-   "resoluciones":[{"numero":"","organismo":"","fecha":"","quote":""}],
-   "escuelas":[{"nombre":"","cue":"","quote":""}],"organismos":[],"leyes":[],
+   "referencias":[{"valor":"<ticket/case/standard/invoice id>","detalle":"","quote":""}],
    "relaciones":[{"sujeto":"","predicado":"","objeto":"","quote":""}],
    "eventos":[{"fecha":"YYYY-MM-DD","hecho":"","importe_cents":null,"quote":""}]}
-  Rules: every monto carries `importe_cents` (integer cents); DNI digits only; every fact row carries
-  a short verbatim `quote`; absent data → empty array. This sidecar feeds a SQLite knowledge base.
+  Rules: every monto carries `importe_cents` (integer cents); every fact row carries a short verbatim
+  `quote`; absent data → empty array. This sidecar feeds a SQLite knowledge base.
 
   OUTPUT REQUIREMENT (CRITICAL): Do NOT print to chat. The two written files (.resumen.md + .facts.json)
   are your only deliverable.
@@ -647,7 +646,7 @@ run after the whole sweep. Reads only the small `*.resumen.md` files.
   Objetivo del caso: <OBJETIVO>
 
   Read every "*.resumen.md" file in this directory: <SUMMARIES_DIR>
-  Each has frontmatter (doc, tipo, numero_gde, fecha, relevancia) and a short summary.
+  Each has frontmatter (doc, tipo, doc_ref, fecha, relevancia) and a short summary.
 
   Write FOUR files using write_file:
 
@@ -658,7 +657,7 @@ run after the whole sweep. Reads only the small `*.resumen.md` files.
 
   2. <MASTER_FILE> — RESUMEN_MAESTRO: a synthesis of the whole corpus oriented to the objetivo:
      - "## Respuesta al objetivo": directly answer the objetivo from the evidence.
-     - "## Síntesis del caso": the narrative, CITING documents inline by numero_gde or doc name
+     - "## Síntesis del caso": the narrative, CITING documents inline by doc_ref or doc name
        (e.g. "según IF-2026-02429965 …", "[0041]").
      - "## Línea de tiempo": bullet timeline of key dated milestones.
      - "## Conclusión": 2-4 sentences.
@@ -666,12 +665,12 @@ run after the whole sweep. Reads only the small `*.resumen.md` files.
      objetivo, say so explicitly. Do NOT invent facts not present in the summaries.
 
   3. <TIMELINE_FILE> — TIMELINE: a single chronological Markdown table of every dated event found
-     in the summaries: | Fecha (YYYY-MM-DD) | Hecho | Doc (numero_gde o nombre) |, sorted ascending.
+     in the summaries: | Fecha (YYYY-MM-DD) | Hecho | Doc (doc_ref o nombre) |, sorted ascending.
      Skip undated items. This is the "línea de tiempo" as a standalone briefing artifact.
 
   4. <ENTIDADES_FILE> — ENTIDADES: extracted entities grouped under headings, each with the doc(s)
-     where it appears: "## Personas" (nombre + DNI/CUIL si aparece), "## Montos" (importe + concepto),
-     "## Expedientes y resoluciones" (números GDE / EX / resoluciones), "## Escuelas / organismos".
+     where it appears: "## Personas" (nombre + id si aparece), "## Organizaciones", "## Montos"
+     (importe + categoría), "## Referencias" (ids / números de documento / estándares / citas).
      Only entities actually present in the summaries; no invention.
 
   OUTPUT REQUIREMENT (CRITICAL): Do NOT print to chat. The four written files are your only deliverable.
@@ -695,10 +694,10 @@ Reads only the small `*.resumen.md` files — never the original documents.
   Pregunta: <PREGUNTA>
 
   Read every "*.resumen.md" file in this directory: <SUMMARIES_DIR>. Each has frontmatter
-  (doc, tipo, numero_gde, fecha, relevancia) and a short objective-driven summary.
+  (doc, tipo, doc_ref, fecha, relevancia) and a short objective-driven summary.
 
   Answer the pregunta using ONLY what the summaries contain. CITE the source document(s) inline for
-  every claim (by numero_gde or doc name, e.g. "según IF-2026-02429965 [0041]"). If the summaries do
+  every claim (by doc_ref or doc name, e.g. "según IF-2026-02429965 [0041]"). If the summaries do
   not contain enough to answer, say so explicitly and point to which documents might hold it (by
   relevance) instead of inventing. Lead with a direct answer, then the supporting detail with citations.
 
@@ -738,25 +737,25 @@ granularity with no index-side change.
 
   ---
   doc: <original file basename>
-  tipo: <document class — NO, IF, PV, RS, ACTO, nota, resolución, planilla…>
-  numero_gde: <GDE/expediente number if present, else "">
+  tipo: <document class — report, note, invoice, contract, email, slide-deck, paper, memo…>
+  doc_ref: <document id / reference number if present, else "">
   fecha: <YYYY-MM-DD of the document, or "ilegible"/"" if none>
-  emisor: <issuing office / person, or "">
+  emisor: <author / issuer / sender, or "">
   relevancia: <integer 0-100 — how relevant THIS doc is to the objetivo>
   ---
   ## Síntesis
   <2-6 sentences focused on the objetivo>
   ## Datos clave
-  - <citable facts: dates, amounts, resolution numbers, people, decisions>
+  - <citable facts: dates, amounts, reference numbers, people, decisions>
   ## Relevancia
   <1-2 sentences: why it is (or isn't) relevant to the objetivo>
 
   For EACH document ALSO write a JSON fact sidecar to the same output path with `.resumen.md`
   replaced by `.facts.json` (so member K's summary `…/NN-slug.resumen.md` gets `…/NN-slug.facts.json`).
-  Each sidecar is valid JSON in the SAME shape used by Mode: notebook (doc/tipo/numero_gde/fecha/
-  emisor/relevancia/sintesis/datos_clave/personas[dni digits]/montos[importe_cents]/fechas/
-  expedientes/resoluciones/escuelas/organismos/leyes/relaciones/eventos), every fact row with a short
-  `quote`, absent data → empty array, NEVER invented. These sidecars feed a SQLite knowledge base.
+  Each sidecar is valid JSON in the SAME shape used by Mode: notebook (doc/tipo/doc_ref/fecha/
+  emisor/relevancia/sintesis/datos_clave/personas[nombre,id]/organizaciones/montos[importe_cents]/
+  fechas/referencias/relaciones/eventos), every fact row with a short `quote`, absent data → empty
+  array, NEVER invented. These sidecars feed a SQLite knowledge base.
 
   Never merge two documents into one file. Never skip a file. One .resumen.md + one .facts.json per
   input, same order. If a date/number is unreadable write "ilegible"; do NOT invent it.

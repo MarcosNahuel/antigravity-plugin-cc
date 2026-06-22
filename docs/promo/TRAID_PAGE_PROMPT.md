@@ -91,7 +91,7 @@ open-source de TRAID con un pitch claro y un demo visual.
 > Requiere la CLI `agy` instalada + inicio de sesión con Google.
 
 **Sección "Por qué" (1-2 frases):**
-> Construido en TRAID para no reventar el contexto de Claude Code con expedientes y documentación
+> Construido en TRAID para no reventar el contexto de Claude Code con carpetas extensas de documentos
 > larga: la lectura se delega a Gemini y solo vuelve la síntesis. Pensado para casos reales con
 > cientos de páginas.
 

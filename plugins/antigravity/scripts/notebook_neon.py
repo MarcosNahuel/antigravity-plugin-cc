@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Phase 6 (opt-in, speculative): export a local notebook.db to Postgres/Neon SQL for
-CROSS-expediente, cross-session querying.
+CROSS-notebook, cross-session querying.
 
 The local `notebook.db` already answers everything for ONE folder. This exporter is only worth it
-when you want to query MANY expedientes together in Neon. It emits idempotent SQL into a dedicated
-`nbkb` schema (it does NOT touch `dge_acuerdos`), keyed by (notebook, basename) so re-exports upsert
-cleanly. Run the generated file via the Neon MCP (`mcp__neon__run_sql` / `run_sql_transaction`) — this
-script never connects anywhere itself (no creds, no coupling).
+when you want to query MANY notebooks together in Neon. It emits idempotent SQL into a dedicated,
+isolated `nbkb` schema (it does NOT touch any of your application tables), keyed by (notebook,
+basename) so re-exports upsert cleanly. Run the generated file via the Neon MCP (`mcp__neon__run_sql`
+/ `run_sql_transaction`) — this script never connects anywhere itself (no creds, no coupling).
 
 Usage:  python notebook_neon.py <OUTDIR> [<notebook_name>]   # writes <OUTDIR>/nbkb_export.sql (utf-8)
 """
@@ -23,7 +23,7 @@ def q(v):
 
 DDL = """CREATE SCHEMA IF NOT EXISTS nbkb;
 CREATE TABLE IF NOT EXISTS nbkb.documents(
-  notebook text, basename text, tipo text, numero_gde text, fecha text, emisor text,
+  notebook text, basename text, tipo text, doc_ref text, fecha text, emisor text,
   relevancia int, estado text, objetivo text, PRIMARY KEY(notebook, basename));
 CREATE TABLE IF NOT EXISTS nbkb.entities(
   notebook text, basename text, clase text, ent_key text, valor text, detalle text,
@@ -51,9 +51,9 @@ def main():
     lines.append(f"DELETE FROM nbkb.documents WHERE notebook={q(nb)};")
     lines.append(f"DELETE FROM nbkb.entities  WHERE notebook={q(nb)};")
     lines.append(f"DELETE FROM nbkb.events    WHERE notebook={q(nb)};")
-    for d in con.execute("SELECT basename,tipo,numero_gde,fecha,emisor,relevancia,estado FROM documents"):
-        lines.append("INSERT INTO nbkb.documents(notebook,basename,tipo,numero_gde,fecha,emisor,relevancia,estado,objetivo) VALUES("
-                     + ",".join([q(nb), q(d["basename"]), q(d["tipo"]), q(d["numero_gde"]), q(d["fecha"]),
+    for d in con.execute("SELECT basename,tipo,doc_ref,fecha,emisor,relevancia,estado FROM documents"):
+        lines.append("INSERT INTO nbkb.documents(notebook,basename,tipo,doc_ref,fecha,emisor,relevancia,estado,objetivo) VALUES("
+                     + ",".join([q(nb), q(d["basename"]), q(d["tipo"]), q(d["doc_ref"]), q(d["fecha"]),
                                  q(d["emisor"]), q(d["relevancia"]), q(d["estado"]), q(objetivo)]) + ");")
     for e in con.execute("""SELECT d.basename b,e.clase,e.ent_key,e.valor,e.detalle,e.monto_cents,e.fecha_iso,e.quote
                             FROM entities e JOIN documents d ON d.id=e.doc_id"""):
@@ -69,7 +69,7 @@ def main():
     path = os.path.join(outdir, "nbkb_export.sql")
     open(path, "w", encoding="utf-8").write("\n".join(lines) + "\n")
     print(f"EXPORTED notebook={nb} inserts={n_ins} sql={path}")
-    print("Run it in Neon via the MCP: mcp__neon__run_sql (or run_sql_transaction). Schema: nbkb (does not touch dge_acuerdos).")
+    print("Run it in Neon via the MCP: mcp__neon__run_sql (or run_sql_transaction). Schema: nbkb (isolated; does not touch your app tables).")
 
 
 if __name__ == "__main__":

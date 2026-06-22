@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Antigravity Plugin — el RAG local que ahorra tokens en Claude Code</title>
+<meta name="description" content="Cómo /agy:notebook construye un RAG local (SQLite + FTS5 + vectores) para que Claude Code responda preguntas sobre carpetas enteras de documentos sin gastar su contexto.">
+<style>
+  :root{
+    --bg:#0d111c; --panel:#161b28; --panel2:#1d2434; --line:#2a3346;
+    --fg:#e6eaf2; --dim:#9aa6bd; --blue:#5896ff; --green:#46c88c; --yellow:#ebc85a;
+    --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:linear-gradient(180deg,#0b0f18,#0d111c 30%);color:var(--fg);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:48px 22px 80px}
+  header{text-align:center;margin-bottom:14px}
+  .badge{display:inline-block;font:600 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;
+    color:var(--green);border:1px solid var(--line);border-radius:999px;padding:7px 13px;margin-bottom:18px}
+  h1{font-size:34px;line-height:1.15;margin:.2em 0}
+  h1 .accent{color:var(--blue)}
+  .sub{color:var(--dim);font-size:18px;max-width:680px;margin:8px auto 0}
+  h2{font-size:23px;margin:46px 0 14px;border-left:3px solid var(--blue);padding-left:12px}
+  p{color:#cdd5e6}
+  .lead{font-size:18px}
+  code,.k{font-family:var(--mono);font-size:.92em;background:var(--panel2);border:1px solid var(--line);
+    border-radius:6px;padding:1px 6px;color:#dfe7fb}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}
+  @media(max-width:680px){.cols{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+  .card h3{margin:.1em 0 .4em;font-size:17px}
+  .card.blue{border-color:#27406e}.card.green{border-color:#1f5e44}
+  .tag{font:600 11px/1 var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--dim)}
+  /* pipeline */
+  .pipe{display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;margin:22px 0}
+  .step{flex:1 1 0;min-width:150px;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:14px 14px;position:relative}
+  .step .n{font:700 12px/1 var(--mono);color:var(--blue)}
+  .step b{display:block;margin:6px 0 4px;font-size:15px}
+  .step small{color:var(--dim);font-size:12.5px;line-height:1.45;display:block}
+  .step.gem{border-color:#5a4a1e}.step.gem .n{color:var(--yellow)}
+  .step.db{border-color:#1f5e44}.step.db .n{color:var(--green)}
+  .arrow{align-self:center;color:var(--dim);font-size:20px}
+  @media(max-width:680px){.pipe{flex-direction:column}.arrow{transform:rotate(90deg)}}
+  .token{display:flex;gap:18px;align-items:center;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:18px 22px;margin-top:18px;flex-wrap:wrap}
+  .bar{flex:1 1 240px}
+  .bar .row{display:flex;align-items:center;gap:10px;margin:8px 0}
+  .bar .label{width:130px;font-size:13px;color:var(--dim)}
+  .meter{flex:1;height:14px;border-radius:8px;background:#0f1422;border:1px solid var(--line);overflow:hidden}
+  .meter span{display:block;height:100%}
+  .meter .red{background:linear-gradient(90deg,#b5563f,#e0734f);width:100%}
+  .meter .grn{background:linear-gradient(90deg,#2f8c63,#46c88c);width:12%}
+  pre{background:#0a0e16;border:1px solid var(--line);border-radius:12px;padding:16px 18px;overflow:auto;
+    font-family:var(--mono);font-size:13.5px;color:#d7e0f2}
+  pre .c{color:#6f7c93}.pre .b{color:var(--blue)}
+  .q{color:var(--blue)}.a{color:var(--green)}
+  .pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:999px;
+    padding:3px 10px;font:600 12px/1 var(--mono);color:#cdd5e6;margin:3px 4px 0 0}
+  .note{background:#11192a;border:1px solid #27406e;border-radius:12px;padding:14px 18px;margin-top:18px;color:#cdd9f3}
+  footer{margin-top:60px;text-align:center;color:var(--dim);font-size:14px;border-top:1px solid var(--line);padding-top:24px}
+  a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+  .yes{color:var(--green);font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="badge">Antigravity Plugin · Claude Code</span>
+    <h1>Un <span class="accent">RAG local</span> para Claude Code<br>que ahorra tokens</h1>
+    <p class="sub">Reemplazo de NotebookLM, adentro de Claude Code. La lectura pesada de una carpeta
+    entera de documentos ocurre en Google&nbsp;Antigravity (<code>agy</code>&nbsp;/&nbsp;Gemini), no
+    en el contexto de Claude.</p>
+  </header>
+
+  <p class="lead">¿Es esto un RAG? <span class="yes">Sí.</span> RAG = <em>Retrieval-Augmented
+  Generation</em>: primero <b>recuperás</b> los fragmentos relevantes de tus documentos, después el
+  modelo <b>genera</b> la respuesta apoyándose en ellos — con citas. Eso es exactamente lo que hace
+  <code>/agy:notebook</code> + <code>/agy:notebook-query</code>, pero <b>local</b> y <b>sin pagar
+  tokens de Claude</b> por leer los documentos.</p>
+
+  <h2>Cómo funciona, paso a paso</h2>
+  <div class="pipe">
+    <div class="step"><span class="n">01 · TUS DOCS</span><b>Una carpeta</b>
+      <small>PDFs, escaneos, imágenes, docx. Pueden ser cientos de páginas.</small></div>
+    <div class="arrow">→</div>
+    <div class="step gem"><span class="n">02 · agy / GEMINI</span><b>Lee y extrae</b>
+      <small>agy lee cada documento (OCR incluido) y escribe un resumen + un <code>.facts.json</code>
+      estructurado por documento. Todo ocurre en Gemini.</small></div>
+    <div class="arrow">→</div>
+    <div class="step db"><span class="n">03 · notebook.db</span><b>Índice local (RAG)</b>
+      <small>Un SQLite con entidades, montos, fechas, referencias + <b>FTS5</b> (keyword) y, opcional,
+      <b>vectores</b> (embeddings). Cada fila cita su documento.</small></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">04 · CLAUDE</span><b>Pregunta y cita</b>
+      <small>Claude consulta la DB con SQL y responde <b>con la fuente</b> — sin volver a leer los
+      documentos crudos.</small></div>
+  </div>
+
+  <h2>Por qué ahorra tokens</h2>
+  <p>Pegar 200 páginas en el chat se las come el contexto de Claude (y se te va el presupuesto de
+  tokens). Acá Claude solo <b>orquesta</b> y lee el índice; el texto pesado nunca entra a su ventana.</p>
+  <div class="token">
+    <div class="bar">
+      <div class="row"><span class="label">Pegar los docs en Claude</span>
+        <span class="meter"><span class="red"></span></span></div>
+      <div class="row"><span class="label">RAG local (este plugin)</span>
+        <span class="meter"><span class="grn"></span></span></div>
+    </div>
+    <div style="flex:1 1 220px;color:var(--dim);font-size:14px">
+      La lectura corre en Gemini vía <code>agy</code>. Claude recibe solo la <b>síntesis</b> y las
+      <b>filas</b> que pide — una fracción de los tokens.
+    </div>
+  </div>
+
+  <h2>Dos formas de recuperar</h2>
+  <div class="cols">
+    <div class="card green"><span class="tag">Por defecto · 0 dependencias</span>
+      <h3>Keyword (FTS5)</h3>
+      <p>Búsqueda full-text con plegado de acentos. Exacta para nombres, montos, números, términos.
+      Siempre disponible, sin instalar nada.</p></div>
+    <div class="card blue"><span class="tag">Opt-in · <code>--semantic</code></span>
+      <h3>Semántico (vectores)</h3>
+      <p>Embeddings de los fragmentos en una tabla <code>sqlite-vec</code>. Encuentra por
+      <b>significado</b>, no solo por palabra exacta. Se fusiona con la keyword usando <b>RRF</b>
+      (Reciprocal Rank Fusion).</p></div>
+  </div>
+  <div class="note">🔎 <b>Híbrido = lo mejor de los dos.</b> Con <code>--semantic</code>, una pregunta
+  conceptual combina el ranking keyword (FTS5) y el vectorial (KNN) y los fusiona con RRF, así no se
+  te escapa ni el término exacto ni el sinónimo. Sin <code>--semantic</code>, FTS5 + SQL estructurado
+  ya resuelven la mayoría de las consultas.</div>
+
+  <h2>Se ve así</h2>
+  <pre><span class="c"># 1) construir el RAG sobre una carpeta (opcional: + búsqueda semántica)</span>
+/agy:notebook  ./docs | objetivo: decisiones, responsables, montos, fechas  <span class="c">--semantic</span>
+
+<span class="c"># 2) preguntar — respuestas exactas y CITADAS</span>
+<span class="q">/agy:notebook-query  ./docs | sumá los montos por categoría</span>
+<span class="a">→ infraestructura $12.400, marketing $8.100  (cita: REP-0042, NOTE-0090)</span>
+
+<span class="q">/agy:notebook-query  ./docs | qué documentos mencionan "Acme Corp"</span>
+<span class="a">→ 3 documentos: REP-0042, MIN-0007, MAIL-0031</span></pre>
+
+  <h2>Qué hace al RAG confiable</h2>
+  <p style="margin-bottom:6px">
+    <span class="pill">cada fila cita su documento</span>
+    <span class="pill">montos en centavos enteros (sin error de redondeo)</span>
+    <span class="pill">0 filas → "no aparece en el corpus", nunca inventa</span>
+    <span class="pill">incremental (solo re-lee lo que cambió)</span>
+    <span class="pill">local + privado</span>
+    <span class="pill">sin runtime de Node</span>
+  </p>
+
+  <footer>
+    <b>Antigravity Plugin</b> — un reemplazo de NotebookLM y pack de capacidades para Claude Code.<br>
+    <a href="https://github.com/MarcosNahuel/antigravity-plugin-cc">github.com/MarcosNahuel/antigravity-plugin-cc</a>
+    · <a href="https://traidagency.com/labs/antigravity">traidagency.com/labs/antigravity</a> · MIT
+  </footer>
+</div>
+</body>
+</html>

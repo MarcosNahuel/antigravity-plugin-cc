@@ -1,103 +1,105 @@
-# Spec — `/agy:notebook`: NotebookLM local sobre una carpeta de documentos
+# Spec — `/agy:notebook`: local NotebookLM over a folder of documents
 
 **Fecha:** 2026-06-19 · **Autor:** Marcos Nahuel Albornoz
 
 ## Objetivo
 
-Reemplazar NotebookLM por un flujo **local** con agy (Gemini multimodal). Dada una
-**carpeta de documentos** y un **objetivo** en lenguaje natural, agy recorre cada
-documento (PDF con texto, PDF escaneado, imagen, docx), produce un **resumen `.md`
-por documento** orientado al objetivo, y luego un **`INDEX.md`** (relevancia) y un
-**`RESUMEN_MAESTRO.md`** (síntesis con citas).
+Replace NotebookLM with a **local** flow inside Claude Code, powered by agy (Gemini
+multimodal). The **Antigravity Plugin** offloads the heavy work Claude Code shouldn't
+burn its context on. Given a **folder of documents** and an **objective** in natural
+language, agy sweeps each document (text PDF, scanned PDF, image, docx), produces a
+**per-document `.md` summary** oriented to the objective, and then an **`INDEX.md`**
+(relevance) and a **`RESUMEN_MAESTRO.md`** (synthesis with citations).
 
-Meta de diseño: **minimizar tokens de Claude Code** — agy hace toda la lectura
-pesada; Claude orquesta y solo lee los dos archivos finales (chicos).
+Design goal: **minimize Claude Code tokens** — agy does all the heavy reading; Claude
+orchestrates and only reads the two small final files. Claude Code stays lean and you
+save tokens.
 
 ## No-objetivos (YAGNI)
 
-- Sin modo chat/Q&A interactivo (one-shot).
-- Sin audio overview, sin mapa mental, sin embeddings/vector store.
-- Sin re-uso de conversiones previas de `doc-to-md` (el resumen es orientado al
-  objetivo, no una conversión fiel).
+- No interactive chat/Q&A mode (one-shot).
+- No audio overview, no mind map, no embeddings/vector store.
+- No reuse of prior `doc-to-md` conversions (the summary is oriented to the
+  objective, not a faithful conversion).
 
 ## Uso
 
 ```
 /agy:notebook <carpeta> | <objetivo>
 ```
-- Separador `|` entre carpeta y objetivo. Si no hay `|`, todo lo que no resuelva a
-  carpeta existente es el objetivo.
-- Ej: `/agy:notebook ".../Documentos-EX-2022-04770549..." | fechas de reclamo de zona por grupo y montos`
+- Separator `|` between folder and objective. If there is no `|`, anything that does
+  not resolve to an existing folder is the objective.
+- Ej: `/agy:notebook ".../research-papers-rag" | summarize each paper's method and open questions`
 
 ## Arquitectura
 
-Comando `commands/notebook.md` (context: principal — orquesta) + nuevo **MODE: notebook**
-en `agents/agy-rescue.md` (un fork por documento, como `doc-to-md`).
+Command `commands/notebook.md` (context: principal — orchestrates) + new **MODE: notebook**
+in `agents/agy-rescue.md` (one fork per document, like `doc-to-md`).
 
 ### Fase 0 — listado (comando, 1 Bash)
-- Resolver carpeta a ruta absoluta. Listar archivos soportados: `.pdf .docx .doc
-  .png .jpg .jpeg .webp .gif`. Ordenar por nombre.
+- Resolve folder to an absolute path. List supported files: `.pdf .docx .doc
+  .png .jpg .jpeg .webp .gif`. Sort by name.
 - `OUTDIR = docs/agy/notebook/<slug-carpeta>/`. `mkdir -p`.
-- Si no hay archivos soportados → avisar y parar.
+- If there are no supported files → warn and stop.
 
 ### Fase 1 — barrido por documento (1 fork agy por doc)
-Por cada documento, detectar texto vs escaneado (**híbrido**):
-- Extraer texto con un helper rápido (pdftotext/pymupdf). Si el texto útil supera un
-  umbral (p.ej. ≥200 chars/página promedio) → **modo texto**: pasar el texto a agy.
-- Si no (escaneado / poco texto) → **modo visión**: agy lee el archivo con visión/OCR.
+For each document, detect text vs scanned (**hybrid**):
+- Extract text with a fast helper (pdftotext/pymupdf). If the useful text exceeds a
+  threshold (e.g. ≥200 chars/page average) → **text mode**: pass the text to agy.
+- Otherwise (scanned / little text) → **vision mode**: agy reads the file with vision/OCR.
 
-agy escribe (con `write_file`, por issue #76) `OUTDIR/<NN>-<slug>.resumen.md`:
+agy writes (with `write_file`, per issue #76) `OUTDIR/<NN>-<slug>.resumen.md`:
 ```
 ---
-doc: <nombre archivo>
-tipo: <NO|IF|PV|RS|ACTO|EXDIG|...>
-numero_gde: <...>
-fecha: <YYYY-MM-DD o "ilegible">
-emisor: <área/persona>
+doc: <file name>
+tipo: <paper|contract|meeting-notes|memo|report|...>
+referencia: <doc id / citation, if any>
+fecha: <YYYY-MM-DD or "ilegible">
+emisor: <author / organization>
 relevancia: <0-100>
 ---
 ## Síntesis (orientada al objetivo)
-<2-6 frases enfocadas en el objetivo>
+<2-6 sentences focused on the objective>
 ## Datos clave
-- <fechas, montos, resoluciones, personas — citables>
+- <fechas, montos, organizaciones, personas, referencias — citable>
 ## Por qué es (ir)relevante para el objetivo
-<1-2 frases>
+<1-2 sentences>
 ```
-- **Robustez**: si un doc falla o timeoutea, escribir un stub con `relevancia: 0` y
-  `estado: no_procesado` y seguir. Nunca abortar el barrido completo.
-- **Concurrencia**: tandas chicas (p.ej. 3-4 forks a la vez) para no saturar agy.
+- **Robustez**: if a doc fails or times out, write a stub with `relevancia: 0` and
+  `estado: no_procesado` and continue. Never abort the whole sweep.
+- **Concurrencia**: small batches (e.g. 3-4 forks at a time) so agy is not saturated.
 
 ### Fase 2 — índice + síntesis (1 fork agy sobre los resúmenes)
-Entrada: todos los `*.resumen.md` (chicos). agy escribe:
-- `OUTDIR/INDEX.md`: tabla de todos los docs ordenada por `relevancia` desc
-  (doc · tipo · fecha · relevancia · 1 línea), con sección **TOP** (los más
-  relevantes al objetivo) destacada arriba.
-- `OUTDIR/RESUMEN_MAESTRO.md`: síntesis del caso orientada al objetivo, **con citas**
-  al `numero_gde`/nombre de cada doc (ej. "según IF-2026-02429965…"), un **timeline**
-  de hitos y una **conclusión** que responde directamente al objetivo.
+Input: all the `*.resumen.md` (small). agy writes:
+- `OUTDIR/INDEX.md`: table of all docs sorted by `relevancia` desc
+  (doc · tipo · fecha · relevancia · 1 line), with a **TOP** section (the most
+  relevant to the objective) highlighted at the top.
+- `OUTDIR/RESUMEN_MAESTRO.md`: synthesis of the corpus oriented to the objective, **with citations**
+  to each doc's `referencia`/name (e.g. "according to the Acme Corp MSA…"), a **timeline**
+  of milestones, and a **conclusion** that directly answers the objective.
 
 ### Fase 3 — reporte (comando)
-Claude lee SOLO `INDEX.md` + `RESUMEN_MAESTRO.md` y los presenta. No lee los docs
-originales ni los resúmenes por-doc.
+Claude reads ONLY `INDEX.md` + `RESUMEN_MAESTRO.md` and presents them. It does not read the
+original docs or the per-doc summaries.
 
 ## Salida
 ```
 docs/agy/notebook/<slug-carpeta>/
 ├── INDEX.md
 ├── RESUMEN_MAESTRO.md
-└── NN-<slug>.resumen.md   (uno por documento)
+└── NN-<slug>.resumen.md   (one per document)
 ```
 
 ## Cambios al plugin
-1. `commands/notebook.md` — nuevo comando (parseo carpeta|objetivo, listado, dispatch).
-2. `agents/agy-rescue.md` — nuevo `MODE: notebook` (per-doc) y `MODE: notebook-index`
-   (síntesis). Reusa las reglas de invocación de agy (skip-permissions, write_file,
+1. `commands/notebook.md` — new command (parse folder|objective, list, dispatch).
+2. `agents/agy-rescue.md` — new `MODE: notebook` (per-doc) and `MODE: notebook-index`
+   (synthesis). Reuses the agy invocation rules (skip-permissions, write_file,
    print-timeout, add-dir).
-3. `agents/agy-rescue.md` — **portar el fix de `MODE: setup`** (el "not logged into
-   Antigravity" es warning NO fatal; test real = `write_file`). Ya corregido en cache.
-4. Registrar el comando en `plugin.json`/marketplace si aplica; bump de versión + CHANGELOG.
+3. `agents/agy-rescue.md` — **port the `MODE: setup` fix** (the "not logged into
+   Antigravity" message is a NON-fatal warning; the real test = `write_file`). Already fixed in cache.
+4. Register the command in `plugin.json`/marketplace if applicable; version bump + CHANGELOG.
 
 ## Riesgos / decisiones
-- agy `--print` no vuelca stdout (issue #76) → **siempre** `write_file` + leer archivo.
-- Lotes grandes timeoutean → **1 documento por llamada** agy.
-- Warnings de auth secundaria son ruido → no tratarlos como falla.
+- agy `--print` does not flush stdout (issue #76) → **always** `write_file` + read the file.
+- Large batches time out → **1 document per call** to agy.
+- Secondary auth warnings are noise → do not treat them as a failure.

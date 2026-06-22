@@ -1,5 +1,5 @@
 ---
-description: Adversarial consistency audit over the notebook knowledge base — finds contradictions that matter for legal/administrative work: the same concepto with conflicting amounts, the same DNI under two names, the same expediente with different values, coverage gaps (unprocessed docs), unparseable amounts. Pure SQL, read-only. Writes CONTRADICCIONES.md.
+description: Adversarial consistency audit over the notebook knowledge base — finds contradictions in a document corpus: the same category with conflicting amounts, the same person under two names, the same reference with different values, coverage gaps (unprocessed docs), unparseable amounts. Pure SQL, read-only. Writes CONTRADICCIONES.md.
 argument-hint: "<folder>"
 context: fork
 allowed-tools: Bash, Read
@@ -24,11 +24,11 @@ python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/notebook_audit.p
 
 It prints `AUDIT findings=N report=…/CONTRADICCIONES.md` and writes the report. Checks:
 - **A** same concepto with conflicting `monto_cents` across documents,
-- **B** same DNI under two or more different names,
-- **C** same expediente number under different values,
+- **B** same person id under two or more different names,
+- **C** same reference under two or more different values,
 - **D** documents that failed processing (`estado='no_procesado'`) — coverage gaps,
 - **E** amounts that couldn't be parsed to cents (OCR review),
-- **F** resoluciones with conflicting organismo/fecha.
+- **F** same organization under two or more different names.
 
 ## Phase 1 — Present
 

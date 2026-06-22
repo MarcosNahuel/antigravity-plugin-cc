@@ -11,13 +11,13 @@ cover_image: ""
 > scans, images, docx) with Gemini 3.x and produces a per-document summary, a relevance index, a
 > cited master synthesis, a timeline and an entity sheet — then `/agy:notebook-ask` answers questions
 > over them **with citations**. It runs locally, on your own Gemini account, and barely touches
-> Claude's context. It's one of 13 commands in [`antigravity-plugin-cc`](https://github.com/MarcosNahuel/antigravity-plugin-cc).
+> Claude's context. It's one of 19 commands in [`antigravity-plugin-cc`](https://github.com/MarcosNahuel/antigravity-plugin-cc).
 
 ## Why
 
 I love [NotebookLM](https://notebooklm.google.com), but I kept hitting the same three walls:
 
-1. **It's cloud.** I work with legal *expedientes* — files I can't upload to a third-party product.
+1. **It's cloud.** I work with documents I can't upload to a third-party product — contracts, an RFP, unreleased research.
 2. **I already live in Claude Code.** Switching tools to "ask my documents" breaks the flow.
 3. **Reading big document sets in Claude is expensive.** Forty 5–50-page PDFs blow through context.
 
@@ -29,7 +29,7 @@ cited synthesis, Q&A) — **locally**, and **without** spending Claude tokens re
 Google announced at I/O 2026 that **Antigravity CLI (`agy`)** replaces the old `gemini-cli` (which
 [stops serving requests on June 18, 2026](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/)).
 `agy` is a Go binary backed by Gemini 3.x with native multimodal vision. It's perfect for the
-"read everything" half of the job — while Claude stays the orchestrator.
+"read everything" half of the job — Claude stays lean as the orchestrator, and you save tokens.
 
 So the plugin is a **thin Bash forwarder**: a Claude Code slash command parses your request, fans
 out work to a subagent, and the subagent calls `agy --print`. No Node runtime, no MCP server.
@@ -48,12 +48,12 @@ hash is stored so re-runs only re-summarize *changed* documents. Scanned PDFs ov
 **split into 15-page sub-PDFs** — because (see gotchas) one `agy` call can't OCR hundreds of pages.
 
 **Phase 1 — per-document summaries.** One `agy` call per document, fanned out ~10 at a time with
-rate-limit backoff. Each writes a small `*.resumen.md` with frontmatter (`tipo`, `numero_gde`,
+rate-limit backoff. Each writes a small `*.resumen.md` with frontmatter (`tipo`, `referencia`,
 `fecha`, `relevancia` 0–100) and an objective-driven summary.
 
 **Phase 2 — synthesis.** One `agy` call reads all the small summaries and writes `INDEX.md`
 (relevance ranking), `RESUMEN_MAESTRO.md` (a synthesis that **cites each source document**),
-`TIMELINE.md` and `ENTIDADES.md` (people / amounts / references / orgs, each with its source).
+`TIMELINE.md` and `ENTIDADES.md` (personas / organizaciones / montos / fechas / referencias, each with its source).
 
 **Q&A.** `/agy:notebook-ask <folder> | <question>` answers from those summaries, with citations,
 never re-reading the originals.
@@ -62,9 +62,9 @@ The trick that makes it cheap: **Claude never reads the documents.** `agy` does,
 Claude reads only the two small final artifacts.
 
 ```text
-/agy:notebook  ./expediente | objective: parties, key dates, amounts, status
-/agy:notebook-ask ./expediente | who opened the file and when?
-→ "Opened by J. Doe on 2022-07-08." (cites PV-2022-04770554)
+/agy:notebook  ./research-papers | objective: open questions, key findings, who funded what
+/agy:notebook-ask ./research-papers | which docs mention "Acme Corp"?
+→ "Three: the 2024 RFP, the Q3 partnership memo, and the diligence report." (each cited)
 ```
 
 ## The `agy` gotchas (that cost me a day)
@@ -97,8 +97,9 @@ If you build on `agy --print`, save yourself the pain:
 /agy:notebook  ./my-docs | what are the key facts and dates?
 ```
 
-13 commands total — also deep web research with citations, branded HTML reports, code review,
-doc-to-markdown, browser recording, web scraping and UX audits. MIT, no runtime deps.
+19 commands total — also audio/video transcription, media Q&A, deep web research with citations,
+branded HTML reports, code review, doc-to-markdown, browser recording, web scraping and UX audits.
+MIT, no runtime deps.
 
 ⭐ [github.com/MarcosNahuel/antigravity-plugin-cc](https://github.com/MarcosNahuel/antigravity-plugin-cc)
 

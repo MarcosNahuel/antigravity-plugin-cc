@@ -1,13 +1,13 @@
 🚀 *Antigravity Plugin para Claude Code* — lo hice open source (gratis, MIT)
 
-Es como tener *NotebookLM pero LOCAL* dentro de Claude Code, + cosas que Claude no puede hacer solo 👇
+Es un *reemplazo de NotebookLM pero LOCAL* dentro de Claude Code, + capacidades que Claude no tiene solo 👇
 
-📂 *Lee carpetas enteras de documentos* (PDFs, escaneos, Word): te devuelve resumen por documento + índice + síntesis *con citas* — sin llenar el contexto de Claude
+📂 *Lee carpetas enteras de documentos* (PDFs, escaneos, Word): te devuelve resumen por documento + índice + síntesis *con citas* — la lectura pesada queda en Gemini, no en el contexto de Claude (ahorrás tokens)
 🎙️ *Transcribe audios y videos* — notas de voz, reuniones, links de YouTube
 🔎 *Investigación web con fuentes citadas*
-🖼️ + review de código, scraping, doc→markdown y grabación de navegador
+🖼️ + Q&A sobre media, review de código, scraping, doc→markdown y grabación de navegador
 
-15 comandos, sin Node, corre sobre la CLI oficial de Google (Gemini 3.x).
+19 comandos, sin Node, corre sobre la CLI oficial de Google (Gemini 3.x).
 
 ▶️ *Instalación* (dentro de Claude Code):
 /plugin marketplace add MarcosNahuel/antigravity-plugin-cc

@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS documents(
   id INTEGER PRIMARY KEY,
   basename TEXT NOT NULL UNIQUE,          -- summary relpath stem: unique citation handle
   nn TEXT, slug TEXT, doc_name TEXT,
-  source_abspath TEXT, tipo TEXT, numero_gde TEXT, fecha TEXT, emisor TEXT,
+  source_abspath TEXT, tipo TEXT, doc_ref TEXT, fecha TEXT, emisor TEXT,
   relevancia INTEGER, estado TEXT DEFAULT 'ok',
   summary_md_path TEXT, facts_json_path TEXT, cache_key TEXT);
 CREATE TABLE IF NOT EXISTS chunks(
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS chunks(
 CREATE TABLE IF NOT EXISTS entities(
   id INTEGER PRIMARY KEY,
   doc_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
-  clase TEXT NOT NULL CHECK(clase IN ('persona','monto','fecha','expediente','resolucion','escuela','organismo','ley')),
+  clase TEXT NOT NULL CHECK(clase IN ('persona','organizacion','monto','fecha','referencia')),
   ent_key TEXT NOT NULL, valor TEXT NOT NULL, detalle TEXT,
   monto_cents INTEGER, fecha_iso TEXT, quote TEXT);
 CREATE INDEX IF NOT EXISTS ix_ent_clave ON entities(clase, ent_key);
@@ -58,8 +58,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
 VIEWS = """
 DROP VIEW IF EXISTS v_personas;
 CREATE VIEW v_personas AS
-  SELECT ent_key AS dni, MIN(valor) AS nombre, COUNT(DISTINCT e.doc_id) AS n_docs,
-         GROUP_CONCAT(DISTINCT d.numero_gde) AS docs
+  SELECT ent_key AS id, MIN(valor) AS nombre, COUNT(DISTINCT e.doc_id) AS n_docs,
+         GROUP_CONCAT(DISTINCT d.doc_ref) AS docs
   FROM entities e JOIN documents d ON d.id=e.doc_id
   WHERE e.clase='persona' GROUP BY ent_key;
 DROP VIEW IF EXISTS v_montos;
@@ -67,21 +67,21 @@ CREATE VIEW v_montos AS
   SELECT detalle AS concepto, COUNT(*) AS n, SUM(monto_cents) AS total_cents,
          printf('$%.2f', SUM(monto_cents)/100.0) AS total
   FROM entities WHERE clase='monto' AND monto_cents IS NOT NULL GROUP BY detalle;
-DROP VIEW IF EXISTS v_expedientes;
-CREATE VIEW v_expedientes AS
-  SELECT ent_key AS numero, MIN(valor) AS valor, COUNT(DISTINCT doc_id) AS n_docs
-  FROM entities WHERE clase='expediente' GROUP BY ent_key;
-DROP VIEW IF EXISTS v_resoluciones;
-CREATE VIEW v_resoluciones AS
-  SELECT valor AS numero, MIN(detalle) AS organismo, MIN(fecha_iso) AS fecha, COUNT(DISTINCT doc_id) AS n_docs
-  FROM entities WHERE clase='resolucion' GROUP BY valor;
-DROP VIEW IF EXISTS v_escuelas;
-CREATE VIEW v_escuelas AS
-  SELECT ent_key AS cue, MIN(valor) AS nombre, COUNT(DISTINCT doc_id) AS n_docs
-  FROM entities WHERE clase='escuela' GROUP BY ent_key;
+DROP VIEW IF EXISTS v_organizaciones;
+CREATE VIEW v_organizaciones AS
+  SELECT ent_key AS org_key, MIN(valor) AS nombre, COUNT(DISTINCT doc_id) AS n_docs
+  FROM entities WHERE clase='organizacion' GROUP BY ent_key;
+DROP VIEW IF EXISTS v_referencias;
+CREATE VIEW v_referencias AS
+  SELECT ent_key AS ref_key, MIN(valor) AS valor, MIN(detalle) AS detalle, COUNT(DISTINCT doc_id) AS n_docs
+  FROM entities WHERE clase='referencia' GROUP BY ent_key;
+DROP VIEW IF EXISTS v_fechas;
+CREATE VIEW v_fechas AS
+  SELECT ev.fecha_iso, ev.hecho, d.doc_ref, d.basename
+  FROM events ev JOIN documents d ON d.id=ev.doc_id WHERE ev.fecha_iso<>'' ORDER BY ev.fecha_iso;
 DROP VIEW IF EXISTS v_timeline;
 CREATE VIEW v_timeline AS
-  SELECT ev.fecha_iso, ev.hecho, ev.monto_cents, d.numero_gde, d.basename, ev.quote
+  SELECT ev.fecha_iso, ev.hecho, ev.monto_cents, d.doc_ref, d.basename, ev.quote
   FROM events ev JOIN documents d ON d.id=ev.doc_id ORDER BY ev.fecha_iso;
 """
 
@@ -237,10 +237,10 @@ def main():
         # UPSERT by basename
         cur.execute("DELETE FROM documents WHERE basename=?", (basename,))
         cur.execute(
-            "INSERT INTO documents(basename,nn,slug,doc_name,source_abspath,tipo,numero_gde,fecha,emisor,relevancia,estado,summary_md_path,facts_json_path,cache_key) "
+            "INSERT INTO documents(basename,nn,slug,doc_name,source_abspath,tipo,doc_ref,fecha,emisor,relevancia,estado,summary_md_path,facts_json_path,cache_key) "
             "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (basename, basename.split("-", 1)[0], basename, facts.get("doc") or fm.get("doc", ""),
-             "", facts.get("tipo") or fm.get("tipo", ""), facts.get("numero_gde") or fm.get("numero_gde", ""),
+             "", facts.get("tipo") or fm.get("tipo", ""), facts.get("doc_ref") or fm.get("doc_ref", ""),
              iso(facts.get("fecha") or fm.get("fecha", "")), facts.get("emisor") or fm.get("emisor", ""),
              as_int(facts.get("relevancia", fm.get("relevancia", 0))), estado, md_path, facts_path, key))
         did = cur.lastrowid
@@ -259,7 +259,8 @@ def main():
         for dk in (facts.get("datos_clave") or []):
             ordn += 1
             cur.execute("INSERT INTO chunks(doc_id,ord,seccion,texto) VALUES(?,?,?,?)", (did, ordn, "datos_clave", str(dk)))
-        # entities
+        # entities — general taxonomy: persona | organizacion | monto | fecha | referencia.
+        # New facts keys (personas/organizaciones/montos/fechas/referencias) plus legacy aliases are merged.
         for p in aslist(facts.get("personas"), "nombre"):
             cur.execute("INSERT INTO entities(doc_id,clase,ent_key,valor,detalle,quote) VALUES(?,?,?,?,?,?)",
                         (did, "persona", dni_key(p), p.get("nombre", ""), p.get("rol", ""), p.get("quote", ""))); n_ent += 1; cite("entities", cur.lastrowid, p.get("quote", ""))
@@ -267,19 +268,19 @@ def main():
             c = to_cents(m)
             cur.execute("INSERT INTO entities(doc_id,clase,ent_key,valor,detalle,monto_cents,fecha_iso,quote) VALUES(?,?,?,?,?,?,?,?)",
                         (did, "monto", str(c if c is not None else ""), m.get("importe", ""), m.get("concepto", ""), c, iso(m.get("fecha", "")), m.get("quote", ""))); n_ent += 1; cite("entities", cur.lastrowid, m.get("quote", ""))
-        for e in aslist(facts.get("expedientes"), "numero"):
+        # organizations (new 'organizaciones' + legacy 'organismos'/'escuelas')
+        for o in aslist(facts.get("organizaciones"), "nombre") + aslist(facts.get("organismos"), "nombre") + aslist(facts.get("escuelas"), "nombre"):
+            nombre = o.get("nombre") or o.get("valor") or ""
+            key = (o.get("id") or o.get("cue") or nombre)
             cur.execute("INSERT INTO entities(doc_id,clase,ent_key,valor,detalle,quote) VALUES(?,?,?,?,?,?)",
-                        (did, "expediente", ex_key(e.get("numero")), e.get("numero", ""), e.get("caratula", ""), e.get("quote", ""))); n_ent += 1
-        for r in aslist(facts.get("resoluciones"), "numero"):
+                        (did, "organizacion", cue_key(key), nombre, o.get("detalle") or o.get("cue", ""), o.get("quote", ""))); n_ent += 1
+        # references: ids / document references / citations / standards (new 'referencias' + legacy)
+        for r in (aslist(facts.get("referencias"), "valor") + aslist(facts.get("expedientes"), "numero")
+                  + aslist(facts.get("resoluciones"), "numero") + aslist(facts.get("leyes"), "valor")):
+            val = r.get("valor") or r.get("numero") or ""
+            det = r.get("detalle") or r.get("caratula") or r.get("organismo") or ""
             cur.execute("INSERT INTO entities(doc_id,clase,ent_key,valor,detalle,fecha_iso,quote) VALUES(?,?,?,?,?,?,?)",
-                        (did, "resolucion", ex_key(r.get("numero")), r.get("numero", ""), r.get("organismo", ""), iso(r.get("fecha", "")), r.get("quote", ""))); n_ent += 1
-        for s in aslist(facts.get("escuelas"), "nombre"):
-            cur.execute("INSERT INTO entities(doc_id,clase,ent_key,valor,detalle,quote) VALUES(?,?,?,?,?,?)",
-                        (did, "escuela", cue_key(s.get("cue")), s.get("nombre", ""), s.get("cue", ""), s.get("quote", ""))); n_ent += 1
-        for o in (facts.get("organismos") or []):
-            cur.execute("INSERT INTO entities(doc_id,clase,ent_key,valor) VALUES(?,?,?,?)", (did, "organismo", str(o).strip().lower(), str(o))); n_ent += 1
-        for l in (facts.get("leyes") or []):
-            cur.execute("INSERT INTO entities(doc_id,clase,ent_key,valor) VALUES(?,?,?,?)", (did, "ley", re.sub(r"\D", "", str(l)) or str(l), str(l))); n_ent += 1
+                        (did, "referencia", ex_key(val), val, det, iso(r.get("fecha", "")), r.get("quote", ""))); n_ent += 1
         # events
         for ev in aslist(facts.get("eventos"), "hecho") + [{"fecha": x.get("fecha"), "hecho": x.get("hecho"), "quote": x.get("quote")} for x in aslist(facts.get("fechas"), "hecho")]:
             fi = iso(ev.get("fecha", ""))

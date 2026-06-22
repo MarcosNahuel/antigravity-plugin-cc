@@ -1,5 +1,5 @@
 ---
-description: Query the notebook knowledge base (SQLite) built by /agy:notebook — precise, grounded, cited. Ask in natural language ("sumá los montos por concepto", "qué docs mencionan el DNI 20123456", "timeline del expediente") or pass raw SQL. Read-only. Use this when you need exact aggregates/lookups across a document corpus instead of re-reading prose.
+description: Query the notebook knowledge base (SQLite) built by /agy:notebook — precise, grounded, cited. Ask in natural language ("sum the amounts by category", "which docs mention 'Acme Corp'", "build a project timeline") or pass raw SQL. Read-only. Use this when you need exact aggregates/lookups across a document corpus instead of re-reading prose.
 argument-hint: "<folder> | <pregunta o SQL>"
 context: fork
 allowed-tools: Bash, Read
@@ -7,7 +7,7 @@ allowed-tools: Bash, Read
 
 Run a precise, **read-only** query over the `notebook.db` that `/agy:notebook` compiled from a folder
 of documents. Every answer is grounded in the documents and **cited** (each row carries its source
-`numero_gde` / `basename`). There is **no `sqlite3` CLI** on this machine — all DB access is Python.
+`doc_ref` / `basename`). There is **no `sqlite3` CLI** on this machine — all DB access is Python.
 
 Raw user request:
 $ARGUMENTS
@@ -79,53 +79,53 @@ s={}
 for rl in (fts,vec):
     for rank,d in enumerate(dict.fromkeys(rl),1): s[d]=s.get(d,0)+1.0/(60+rank)
 order=sorted(s,key=lambda d:-s[d])
-docs=[dict(con.execute("SELECT id,numero_gde,tipo,basename,relevancia FROM documents WHERE id=?",(d,)).fetchone()) for d in order[:8]]
+docs=[dict(con.execute("SELECT id,doc_ref,tipo,basename,relevancia FROM documents WHERE id=?",(d,)).fetchone()) for d in order[:8]]
 print(json.dumps(docs, ensure_ascii=False, indent=2))
 PY
 ```
 
 ## Phase 2 — Present (grounded + cited)
 
-Narrate the rows. **Cite every claim** by `numero_gde`/`basename`. For a SUM, list the contributing
+Narrate the rows. **Cite every claim** by `doc_ref`/`basename`. For a SUM, list the contributing
 rows so it's auditable. If a query returns 0 rows, say *"no aparece en el corpus"* (and note any
 `estado='no_procesado'` docs as a coverage gap) — **never invent** a value.
 
 ## Schema (notebook.db, schema_ver=1)
 
 ```
-documents(id, basename, nn, slug, doc_name, tipo, numero_gde, fecha, emisor, relevancia, estado, summary_md_path, cache_key)
+documents(id, basename, nn, slug, doc_name, tipo, doc_ref, fecha, emisor, relevancia, estado, summary_md_path, cache_key)
 chunks(id, doc_id→documents, ord, seccion, texto)          chunks_fts(texto)  -- FTS5, diacritic-folded
 entities(id, doc_id→documents, clase, ent_key, valor, detalle, monto_cents, fecha_iso, quote)
-        clase ∈ persona|monto|fecha|expediente|resolucion|escuela|organismo|ley
+        clase ∈ persona|organizacion|monto|fecha|referencia
 events(id, doc_id→documents, fecha_iso, hecho, monto_cents, quote)
 relations(id, doc_id→documents, sujeto, predicado, objeto, quote)
 citations(id, doc_id→documents, tabla, fila_id, cita)
-views: v_personas(dni,nombre,n_docs,docs)  v_montos(concepto,n,total_cents,total)
-       v_expedientes  v_resoluciones  v_escuelas  v_timeline(fecha_iso,hecho,monto_cents,numero_gde,basename,quote)
+views: v_personas(id,nombre,n_docs,docs)  v_organizaciones(org_key,nombre,n_docs)  v_montos(concepto,n,total_cents,total)
+       v_referencias(ref_key,valor,detalle,n_docs)  v_fechas  v_timeline(fecha_iso,hecho,monto_cents,doc_ref,basename,quote)
 ```
 
 ## Recetas (NL → SQL)
 
 ```sql
--- total de montos por concepto (auditable)
+-- total amounts by category (auditable)
 SELECT * FROM v_montos ORDER BY total_cents DESC;
--- gran total
+-- grand total
 SELECT printf('$%.2f', SUM(monto_cents)/100.0) total FROM entities WHERE clase='monto';
--- cada monto con su cita y documento fuente
-SELECT e.valor importe, e.detalle concepto, e.quote cita, d.numero_gde, d.basename
+-- every amount with its quote + source document
+SELECT e.valor importe, e.detalle concepto, e.quote cita, d.doc_ref, d.basename
   FROM entities e JOIN documents d ON d.id=e.doc_id WHERE e.clase='monto';
--- documentos que mencionan un DNI
-SELECT d.numero_gde, d.tipo, e.valor FROM entities e JOIN documents d ON d.id=e.doc_id
-  WHERE e.clase='persona' AND e.ent_key='20123456';
--- timeline del caso
-SELECT fecha_iso, hecho, numero_gde FROM v_timeline;
--- búsqueda full-text (acentos plegados) con documento fuente
-SELECT d.numero_gde, snippet(chunks_fts,0,'[',']','…',8) s
+-- documents that mention a person (by name or id)
+SELECT d.doc_ref, d.tipo, e.valor FROM entities e JOIN documents d ON d.id=e.doc_id
+  WHERE e.clase='persona' AND e.valor LIKE '%Acme%';
+-- project timeline
+SELECT fecha_iso, hecho, doc_ref FROM v_timeline;
+-- full-text search (diacritic-folded) with source document
+SELECT d.doc_ref, snippet(chunks_fts,0,'[',']','…',8) s
   FROM chunks_fts f JOIN chunks c ON c.id=f.rowid JOIN documents d ON d.id=c.doc_id
-  WHERE chunks_fts MATCH 'zona AND antiguedad';
--- resoluciones / expedientes / escuelas
-SELECT * FROM v_resoluciones;   SELECT * FROM v_expedientes;   SELECT * FROM v_escuelas;
--- cobertura: documentos no procesados (gaps)
+  WHERE chunks_fts MATCH 'budget AND deadline';
+-- organizations / references mentioned
+SELECT * FROM v_organizaciones;   SELECT * FROM v_referencias;
+-- coverage: unprocessed documents (gaps)
 SELECT nn, tipo, basename FROM documents WHERE estado='no_procesado';
 ```
 

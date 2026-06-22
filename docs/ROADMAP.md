@@ -61,7 +61,7 @@ vía un *thin Bash forwarder*. **11 comandos**:
 ## 3. Mejoras ya aplicadas (esta sesión, v0.6.4-0.6.5)
 
 - **`/agy:notebook`** completo (NotebookLM local): híbrido texto/visión, frontmatter con relevancia,
-  índice + síntesis con citas. Probado sobre un expediente real de **48 documentos** (46 texto + 2
+  índice + síntesis con citas. Probado sobre una carpeta real de **48 documentos** (46 texto + 2
   visión escaneado/docx) → generó todo OK.
 - **Fix `/agy:setup`**: ya no da falsa alarma de "re-login" por el ruido de auth secundaria; testea
   con `write_file` y distingue timeout/tamaño vs login real.
@@ -92,20 +92,20 @@ Fuentes: búsqueda web 2026-06-19 (delegate-agy README, geminicli.com/extensions
 2. **`config/model-map.json` con aliases** (robar de delegate-agy): `flash-low`, `pro`, `flash`, etc.
    → labels reales ("Gemini 3.5 Flash (Low)"). Que `/agy:model flash-low` y la doc usen alias estables.
 3. **notebook — caché incremental**: hashear cada documento (mtime+size o sha) y **saltar los que ya
-   tienen `.resumen.md` actualizado**. Re-correr un expediente solo procesa lo nuevo/cambiado.
-   (Hoy re-procesa todo.) Gran ahorro de tiempo/quota en expedientes grandes.
+   tienen `.resumen.md` actualizado**. Re-correr una carpeta solo procesa lo nuevo/cambiado.
+   (Hoy re-procesa todo.) Gran ahorro de tiempo/quota en carpetas grandes.
 4. **notebook — routing por tipo de doc**: resúmenes por-doc con **Flash (Low)**; la síntesis final
    (`notebook-index`) con **3.1 Pro (Low)** (más calidad donde importa). Robar el patrón de delegate-agy.
 
 ### Media — #5+#8 ✅ v0.6.7 · #6 ✅ v0.6.9 · #7 ❌ no viable (agy --print no lee stdin)
 5. **notebook — modo Q&A sobre el corpus** (`/agy:notebook-ask <carpeta> <pregunta>`): responder
    preguntas citando los `.resumen.md` (el chat de NotebookLM). Ya tenemos los resúmenes como índice.
-6. **notebook — agrupar docs chicos**: las providencias (PV) de 1 página son ruido; agruparlas en
-   una sola llamada "providencias de trámite" reduce llamadas y quota.
+6. **notebook — agrupar docs chicos**: las notas/anexos de 1 página son ruido; agruparlos en
+   una sola llamada "documentos breves" reduce llamadas y quota.
 7. **Prompt por stdin** (robar de delegate-agy): pasar el prompt por stdin, no como arg de `--print`,
    por seguridad (no aparece en `ps`/logs del sistema).
-8. **notebook — salida adicional**: `TIMELINE.md` y/o `ENTIDADES.md` (personas/montos/expedientes)
-   como artefactos extra (estilo "briefing doc" de NotebookLM).
+8. **notebook — salida adicional**: `TIMELINE.md` y/o `ENTIDADES.md` (personas, organizaciones,
+   montos, fechas, referencias) como artefactos extra (estilo "briefing doc" de NotebookLM).
 
 ### Baja / explorar — EVALUADO 2026-06-19 (requieren tu visto, no implementados)
 9. **Audio overview** (estilo NotebookLM podcast) si agy/Gemini expone TTS.
@@ -115,7 +115,7 @@ Fuentes: búsqueda web 2026-06-19 (delegate-agy README, geminicli.com/extensions
 > **Veredicto de la evaluación (no tocar sin avisar):**
 > - **#9 Audio overview** — requiere TTS; `agy`/Gemini no lo expone por CLI de forma usable. **Descartado** por ahora (se podría generar un guión .md tipo "podcast script" sin audio, si interesa).
 > - **#10 ACP en vez de `--print`** — eliminaría issue #76 de raíz pero es un **refactor grande y riesgoso** (reescribe la invocación de los 13 comandos). El workaround `write_file` ya funciona y está probado. **NO implementar sin decisión explícita.**
-> - **#11 JSON output** — bajo riesgo, valor acotado (útil para `scrape` y el índice de notebook si se consumen mngprogramáticamente). **Opcional**; se puede hacer si lo pedís.
+> - **#11 JSON output** — bajo riesgo, valor acotado (útil para `scrape` y el índice de notebook si se consumen programáticamente). **Opcional**; se puede hacer si lo pedís.
 
 ---
 

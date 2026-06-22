@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phase 4: job records for long /agy:notebook sweeps (200-page expedientes).
+"""Phase 4: job records for long /agy:notebook sweeps (200-page document sets).
 
 Makes a sweep OBSERVABLE and RESUMABLE without a daemon: a tiny JSON job record under
 `<OUTDIR>/.jobs/` tracks per-document status, derived from the manifest + which summary files

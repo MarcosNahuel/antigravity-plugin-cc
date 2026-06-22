@@ -63,9 +63,9 @@ Point it at a **folder of documents** (PDFs with text, scanned PDFs, images, doc
 Then ask follow-up questions over the corpus:
 
 ```text
-/agy:notebook  ./expediente  | objective: parties, key dates, amounts, status
-/agy:notebook-ask  ./expediente  | who started the file and on what date?
-→ "The file was opened by J. Doe on 2022-07-08." (cites PV-2022-04770554)
+/agy:notebook  ./docs  | objective: key decisions, owners, amounts, deadlines
+/agy:notebook-ask  ./docs  | who owns the budget and when is it due?
+→ "Owned by J. Doe; due 2026-07-08." (cites REP-0042)
 ```
 
 Why it's different from pasting docs into a chat:
@@ -78,7 +78,7 @@ Why it's different from pasting docs into a chat:
 - **Local & private** — your documents never leave your machine + your own Gemini account.
 
 It scales to real corpora: a 184-page scanned file is auto-split into page chunks so a single huge
-scan doesn't time out. Built for reading **legal expedientes, RFPs, research folders, contract sets**.
+scan doesn't time out. Built for reading **research papers, RFPs, contract sets, meeting-note archives, a book's chapters**.
 
 
 ---
@@ -91,18 +91,20 @@ document, and a pure-Python loader compiles them into a **queryable SQLite datab
 grounded, **cited** work instead of re-reading summaries:
 
 ```text
-/agy:notebook-query  ./expediente  | sumá los montos por concepto
-/agy:notebook-query  ./expediente  | qué documentos mencionan el DNI 20123456
-/agy:notebook-query  ./expediente  | timeline del caso
-/agy:notebook-query  ./expediente  | SELECT * FROM v_montos        # raw SQL works too
+/agy:notebook-query  ./docs  | sum the amounts by category
+/agy:notebook-query  ./docs  | which documents mention 'Acme Corp'
+/agy:notebook-query  ./docs  | build a project timeline
+/agy:notebook-query  ./docs  | SELECT * FROM v_montos        # raw SQL works too
 ```
 
 - **Deterministic money math** — amounts are stored as integer cents; `SUM` then divide by 100 (no float drift), each row citing its source document.
-- **Source-grounded** — every entity/amount/date/expediente traces to a document + a verbatim quote; 0 rows → "no aparece en el corpus", never invented.
+- **Source-grounded** — every entity/amount/date/reference traces to a document + a verbatim quote; 0 rows → "does not appear in the corpus", never invented.
 - **No new deps** — Python stdlib `sqlite3` only; the DB is disposable/gitignored and rebuilds incrementally.
-- **Drives downstream work** — feed DB totals straight into liquidation/costeo generators. The `notebook-kb` skill teaches Claude when/how to use it.
+- **Drives downstream work** — feed DB totals straight into your own scripts or reports. The `notebook-kb` skill teaches Claude when/how to use it.
 
 For grounded *prose* instead of structured rows, use `/agy:notebook-ask`.
+
+> 📊 **How the local RAG works (visual):** [`docs/semantic-rag-explainer.html`](docs/semantic-rag-explainer.html) — what it is, how it saves tokens, keyword vs semantic (FTS5 + vectors fused with RRF).
 
 ---
 
