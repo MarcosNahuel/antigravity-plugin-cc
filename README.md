@@ -1,6 +1,6 @@
 # Antigravity Plugin for Claude Code
 
-> **A local NotebookLM — and 14 more commands — for Claude Code, powered by Google Antigravity (`agy` / Gemini 3.x), the official CLI that replaces the now-deprecated `gemini-cli`. Read whole folders of documents, transcribe audio & video, and research the web with citations — locally, offloading the heavy reading to Gemini so it barely touches Claude's context.**
+> **A local NotebookLM — and 15 more commands — for Claude Code, powered by Google Antigravity (`agy` / Gemini 3.x), the official CLI that replaces the now-deprecated `gemini-cli`. Read whole folders of documents, transcribe audio & video, and research the web with citations — locally, offloading the heavy reading to Gemini so it barely touches Claude's context.**
 
 **Project page:** [traidagency.com/labs/antigravity](https://traidagency.com/labs/antigravity) — built by [TRAID](https://traidagency.com).
 
@@ -19,7 +19,7 @@
 >
 > **If you were using [`gemini-plugin-cc`](https://github.com/abiswas97/gemini-plugin-cc) inside Claude Code, this plugin is your migration path.** It targets `agy` directly. Enterprise users on Code Assist Standard/Enterprise licenses are not affected by the cutoff.
 
-**TL;DR** — `/agy:notebook <folder> | <objective>` turns a folder of documents into a **local NotebookLM**: one objective-driven summary per document, a relevance `INDEX.md`, a cited `RESUMEN_MAESTRO.md`, a `TIMELINE.md` and an `ENTIDADES.md` — then `/agy:notebook-ask` answers questions over them **with citations**. All the heavy reading runs in Gemini 3.x via `agy`, so it barely touches Claude's context. Plus **audio & video transcription** (`/agy:transcribe`, `/agy:media`), deep web research with citations, branded HTML reports, git-diff code review, doc-to-markdown, browser recording and more. **No Node.js runtime. No MCP gymnastics. Fifteen slash commands.**
+**TL;DR** — `/agy:notebook <folder> | <objective>` turns a folder of documents into a **local NotebookLM**: one objective-driven summary per document, a relevance `INDEX.md`, a cited `RESUMEN_MAESTRO.md`, a `TIMELINE.md` and an `ENTIDADES.md` — then `/agy:notebook-ask` answers questions over them **with citations**. All the heavy reading runs in Gemini 3.x via `agy`, so it barely touches Claude's context. Plus **audio & video transcription** (`/agy:transcribe`, `/agy:media`), deep web research with citations, branded HTML reports, git-diff code review, doc-to-markdown, browser recording and more. **No Node.js runtime. No MCP gymnastics. Sixteen slash commands.**
 
 [**Install**](#install) · [**Slash commands**](#slash-commands) · [**Examples**](#usage-examples) · [**FAQ**](#faq) · [**Compare to alternatives**](#compared-to-alternatives) · [**Project page**](https://traidagency.com/labs/antigravity)
 
@@ -80,6 +80,29 @@ Why it's different from pasting docs into a chat:
 It scales to real corpora: a 184-page scanned file is auto-split into page chunks so a single huge
 scan doesn't time out. Built for reading **legal expedientes, RFPs, research folders, contract sets**.
 
+
+---
+
+## 🗄️ Knowledge base — `/agy:notebook-query` (the corpus as a queryable SQLite DB)
+
+`/agy:notebook` doesn't just write prose — the same pass emits a structured `NN-slug.facts.json` per
+document, and a pure-Python loader compiles them into a **queryable SQLite database** `notebook.db`
+(`documents · entities · events · relations · citations` + FTS5). So Claude Code can do *exact*,
+grounded, **cited** work instead of re-reading summaries:
+
+```text
+/agy:notebook-query  ./expediente  | sumá los montos por concepto
+/agy:notebook-query  ./expediente  | qué documentos mencionan el DNI 20123456
+/agy:notebook-query  ./expediente  | timeline del caso
+/agy:notebook-query  ./expediente  | SELECT * FROM v_montos        # raw SQL works too
+```
+
+- **Deterministic money math** — amounts are stored as integer cents; `SUM` then divide by 100 (no float drift), each row citing its source document.
+- **Source-grounded** — every entity/amount/date/expediente traces to a document + a verbatim quote; 0 rows → "no aparece en el corpus", never invented.
+- **No new deps** — Python stdlib `sqlite3` only; the DB is disposable/gitignored and rebuilds incrementally.
+- **Drives downstream work** — feed DB totals straight into liquidation/costeo generators. The `notebook-kb` skill teaches Claude when/how to use it.
+
+For grounded *prose* instead of structured rows, use `/agy:notebook-ask`.
 
 ---
 

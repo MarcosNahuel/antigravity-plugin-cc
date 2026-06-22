@@ -608,7 +608,25 @@ One document → one **objective-driven** summary (NOT a faithful conversion). P
   <1-2 sentences: why it is (or isn't) relevant to the objetivo>
 
   Be faithful: if a date/number is unreadable, say "ilegible", do NOT invent it.
-  OUTPUT REQUIREMENT (CRITICAL): Do NOT print to chat. The written file is your only deliverable.
+
+  THEN write a SECOND file — a machine-readable JSON fact sidecar — to the SAME path with
+  `.resumen.md` replaced by `.facts.json`. Valid JSON, this exact shape (omit unknown fields or use
+  empty arrays; NEVER invent a DNI/monto/expediente):
+  {"doc":"<basename>","tipo":"<class>","numero_gde":"<num or ''>","fecha":"<YYYY-MM-DD or ''>",
+   "emisor":"<office or ''>","relevancia":<0-100>,"sintesis":"<…>","datos_clave":["<…>"],
+   "personas":[{"nombre":"","dni":"<digits only>","cuil":"","rol":"","quote":""}],
+   "montos":[{"importe":"$1.234,56","importe_cents":123456,"concepto":"","fecha":"","quote":""}],
+   "fechas":[{"fecha":"YYYY-MM-DD","hecho":"","quote":""}],
+   "expedientes":[{"numero":"EX-…","caratula":"","quote":""}],
+   "resoluciones":[{"numero":"","organismo":"","fecha":"","quote":""}],
+   "escuelas":[{"nombre":"","cue":"","quote":""}],"organismos":[],"leyes":[],
+   "relaciones":[{"sujeto":"","predicado":"","objeto":"","quote":""}],
+   "eventos":[{"fecha":"YYYY-MM-DD","hecho":"","importe_cents":null,"quote":""}]}
+  Rules: every monto carries `importe_cents` (integer cents); DNI digits only; every fact row carries
+  a short verbatim `quote`; absent data → empty array. This sidecar feeds a SQLite knowledge base.
+
+  OUTPUT REQUIREMENT (CRITICAL): Do NOT print to chat. The two written files (.resumen.md + .facts.json)
+  are your only deliverable.
   ```
 
 - After agy returns, return to caller: the saved summary path and the `relevancia` value (from
@@ -733,9 +751,17 @@ granularity with no index-side change.
   ## Relevancia
   <1-2 sentences: why it is (or isn't) relevant to the objetivo>
 
-  Never merge two documents into one file. Never skip a file. One output file per input, same order.
-  If a date/number is unreadable write "ilegible"; do NOT invent it.
-  OUTPUT REQUIREMENT (CRITICAL): Do NOT print to chat. The written files are your only deliverable.
+  For EACH document ALSO write a JSON fact sidecar to the same output path with `.resumen.md`
+  replaced by `.facts.json` (so member K's summary `…/NN-slug.resumen.md` gets `…/NN-slug.facts.json`).
+  Each sidecar is valid JSON in the SAME shape used by Mode: notebook (doc/tipo/numero_gde/fecha/
+  emisor/relevancia/sintesis/datos_clave/personas[dni digits]/montos[importe_cents]/fechas/
+  expedientes/resoluciones/escuelas/organismos/leyes/relaciones/eventos), every fact row with a short
+  `quote`, absent data → empty array, NEVER invented. These sidecars feed a SQLite knowledge base.
+
+  Never merge two documents into one file. Never skip a file. One .resumen.md + one .facts.json per
+  input, same order. If a date/number is unreadable write "ilegible"; do NOT invent it.
+  OUTPUT REQUIREMENT (CRITICAL): Do NOT print to chat. The written files (one .resumen.md and one
+  .facts.json per document) are your only deliverable.
   ```
 
 - After agy returns, verify EVERY entry in `WRITE_FILES` exists and is non-empty (`test -s`). Report

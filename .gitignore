@@ -7,3 +7,10 @@ docs/agy/
 node_modules/
 progress.txt
 tasks/loop-checklist.json
+
+# notebook knowledge base (disposable, rebuilt from .facts.json)
+notebook.db
+notebook.db-wal
+notebook.db-shm
+*.facts.json
+_facts_errors.log

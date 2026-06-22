@@ -232,6 +232,22 @@ a `group` row covers several summary files — expand its column-5 pipe list whe
 > actually cuts wall-clock at scale — it lowers the invocation count the RPM ceiling applies to.
 > Pushing raw concurrency past `RPM` just produces more 429s, not more throughput.
 
+## Phase 1.5 — Compile the knowledge base (ONE Bash call)
+
+Each summary now has a sibling `NN-slug.facts.json` (structured facts agy emitted alongside the
+`.md`). Compile them into a queryable SQLite DB (`notebook.db`) so Claude can do precise, grounded
+work — totals, entity lookups, timelines — instead of re-reading prose. Pure Python stdlib, ~1s,
+tolerant (a bad/missing sidecar falls back to the `.md` frontmatter, never crashes):
+
+```bash
+python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/notebook_db.py" "$OUTDIR" "$OBJETIVO"
+```
+
+(`CLAUDE_PLUGIN_ROOT` points at the plugin install; if unset, use the repo path to
+`plugins/antigravity/scripts/notebook_db.py`.) It prints `BUILT db=… docs=N entities=M events=K
+errors=E`. If `errors>0`, `<OUTDIR>/_facts_errors.log` lists the quarantined sidecars (still queryable
+by frontmatter). The DB is disposable/gitignored; it rebuilds incrementally on every notebook run.
+
 ## Phase 2 — Index + master synthesis (switch model, then ONE agy subagent)
 
 First switch agy to a higher-quality model for the synthesis (ONE Bash call, best-effort):

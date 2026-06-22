@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/MarcosNahuel/antigravity-plugin-cc/schemas/notebook-facts.schema.json",
+  "title": "notebook facts sidecar",
+  "description": "Per-document structured fact sidecar emitted by agy MODE: notebook / notebook-group alongside the .resumen.md. Compiled into notebook.db by notebook_db.py. Every fact row should carry a short verbatim quote. Absent data => empty array; never invent.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["doc"],
+  "properties": {
+    "doc": { "type": "string", "description": "original file basename" },
+    "tipo": { "type": "string", "description": "NO|IF|PV|RS|ACTO|nota|resolución|planilla…" },
+    "numero_gde": { "type": "string" },
+    "fecha": { "type": "string", "description": "YYYY-MM-DD or '' or 'ilegible'" },
+    "emisor": { "type": "string" },
+    "relevancia": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "sintesis": { "type": "string" },
+    "datos_clave": { "type": "array", "items": { "type": "string" } },
+    "personas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nombre": { "type": "string" },
+          "dni": { "type": "string", "description": "digits only" },
+          "cuil": { "type": "string" },
+          "rol": { "type": "string" },
+          "quote": { "type": "string" }
+        },
+        "required": ["nombre"]
+      }
+    },
+    "montos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "importe": { "type": "string", "description": "as written, e.g. $1.234,56" },
+          "importe_cents": { "type": ["integer", "null"], "description": "integer cents — authoritative for math" },
+          "concepto": { "type": "string" },
+          "fecha": { "type": "string" },
+          "quote": { "type": "string" }
+        }
+      }
+    },
+    "fechas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "fecha": { "type": "string", "description": "YYYY-MM-DD" },
+          "hecho": { "type": "string" },
+          "quote": { "type": "string" }
+        }
+      }
+    },
+    "expedientes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "numero": { "type": "string" },
+          "caratula": { "type": "string" },
+          "quote": { "type": "string" }
+        }
+      }
+    },
+    "resoluciones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "numero": { "type": "string" },
+          "organismo": { "type": "string" },
+          "fecha": { "type": "string" },
+          "quote": { "type": "string" }
+        }
+      }
+    },
+    "escuelas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nombre": { "type": "string" },
+          "cue": { "type": "string" },
+          "quote": { "type": "string" }
+        }
+      }
+    },
+    "organismos": { "type": "array", "items": { "type": "string" } },
+    "leyes": { "type": "array", "items": { "type": "string" } },
+    "relaciones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sujeto": { "type": "string" },
+          "predicado": { "type": "string" },
+          "objeto": { "type": "string" },
+          "quote": { "type": "string" }
+        }
+      }
+    },
+    "eventos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "fecha": { "type": "string", "description": "YYYY-MM-DD" },
+          "hecho": { "type": "string" },
+          "importe_cents": { "type": ["integer", "null"] },
+          "quote": { "type": "string" }
+        }
+      }
+    }
+  }
+}

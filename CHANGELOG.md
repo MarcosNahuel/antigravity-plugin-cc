@@ -4,6 +4,30 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — 2026-06-22
+
+### Added — notebook becomes a queryable knowledge base (multi-agent designed + benchmarked)
+
+`/agy:notebook` no longer just writes prose: the same agy pass now emits a structured
+`NN-slug.facts.json` sidecar per document, and a pure-Python (stdlib `sqlite3`) loader compiles them
+into a queryable **SQLite database** (`notebook.db`) so Claude Code does exact, grounded, cited work.
+
+- **`plugins/antigravity/scripts/notebook_db.py`** — tolerant, idempotent loader → `documents ·
+  chunks (+FTS5) · entities · events · relations · citations` + dedup views (`v_montos`,
+  `v_personas`, `v_timeline`, …). Money is integer **cents** (no float drift); every fact row carries
+  a `quote` + source document. A malformed/missing sidecar falls back to the `.md` frontmatter and is
+  logged — the build never crashes.
+- **`/agy:notebook-query <folder> | <pregunta|SQL>`** — read-only NL→SQL or raw SQL over the DB, with
+  citations. There is no `sqlite3` CLI on Windows here, so all access is a Python heredoc.
+- **`skills/notebook-kb/SKILL.md`** — teaches Claude when/how to use the DB (decision gate, query
+  wrapper, citation contract, downstream liquidation/timeline workflows).
+- **`schemas/notebook-facts.schema.json`** — JSON Schema for the sidecar (validation, adopted from the
+  Gemini-plugin `schemas/` pattern). Tolerant last/largest-valid-JSON parsing adopted from the
+  Codex-plugin discipline.
+- Validated end-to-end on real agy 1.0.10 output: agy → `.facts.json` → `notebook.db` → cited SQL
+  (montos by concepto with exact cents, DNI dedup incl. CUIL→DNI, FTS, timeline). Design +
+  full roadmap (semantic vectors, background sweeps, grounding gate) in `docs/notebook-kb-design.md`.
+
 ## [0.7.2] — 2026-06-22
 
 ### Changed — `/agy:notebook` throughput at scale (multi-agent-designed + benchmarked)
