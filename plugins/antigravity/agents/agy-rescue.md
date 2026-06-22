@@ -174,7 +174,7 @@ When this happens, agy exits 0 but the `WRITE_FILE` you instructed it to write *
 The slash command passes you a header block followed by the user's text:
 
 ```
-MODE: rescue|research|setup|record|scrape|doc-to-md|design-review|ask|review|report-analyze|report-generate|notebook|notebook-index|notebook-ask|notebook-group|transcribe|media
+MODE: rescue|research|setup|record|scrape|doc-to-md|design-review|ask|review|report-analyze|report-generate|notebook|notebook-index|notebook-ask|notebook-group|transcribe|media|video|notebook-audit
 INTENSITY: low|medium|high          # only for research
 MODEL:                              # reserved for forward compat — agy 1.0.x ignores model overrides
 RESUME: true|false                  # add --continue if true
@@ -819,6 +819,49 @@ Multimodal Q&A over an audio/video/image (file or URL) — beyond transcription.
   ```
 
 - After agy returns, verify `WRITE_FILE` exists and is non-empty (same check / recovery). Return its path.
+
+### Mode: video
+
+WATCH a video and return a structured **visual** breakdown (scenes, on-screen text/OCR, key moments),
+not just a transcript. Gemini is natively multimodal in video; Claude Code is not.
+
+- Timeout: `12m0s` (full watch + scene segmentation + OCR takes longer than a Q&A).
+- `--add-dir <ADD_DIR>` (source dir) **and** `--add-dir <CWD>` for a file; for a URL pass only `--add-dir <CWD>`.
+- Prompt template:
+
+  ```
+  Video analysis task — VISUAL breakdown. Output language: Spanish (es-AR) unless the video is clearly in another language.
+
+  Source (<KIND>): <SOURCE>
+  Focus: <FOCUS or "general visual breakdown">
+
+  WATCH the whole video. Describe what is SHOWN, with timestamps — not only the audio. Write to the
+  ABSOLUTE path <WRITE_FILE> exactly this Markdown:
+
+  ## Resumen
+  <3-6 sentences: what the video is, what happens, the takeaway>
+  ## Escenas
+  | Tramo | Qué se ve | Texto en pantalla / OCR | Audio (resumen) |
+  |-------|-----------|--------------------------|-----------------|
+  | mm:ss–mm:ss | <visual description> | <on-screen text, slides, charts, UI labels — "" if none> | <what's said> |
+  (one row per coherent segment; cover the whole duration in order)
+  ## Texto en pantalla
+  <ALL text legible on screen across the video — slide bullets, captions, code, UI, figures — grouped
+  by timestamp; this is OCR, transcribe verbatim, mark "ilegible" if unreadable>
+  ## Momentos clave
+  - mm:ss — <a notable visual event: a result shown, a transition, an error, a key frame>
+
+  Be faithful to what is actually visible; do NOT invent on-screen text or events.
+  OUTPUT REQUIREMENT (CRITICAL): Do NOT print to chat. The written file is your only deliverable.
+  ```
+
+- After agy returns, verify `WRITE_FILE` exists and is non-empty (same check / recovery). Return its path.
+
+### Mode: notebook-audit
+
+Adversarial consistency check over an existing `notebook.db` — pure SQL, no agy. The slash command
+runs the SQL itself; this mode exists only so a follow-up narration can be routed if desired. (See
+`/agy:notebook-audit` for the queries.)
 
 ### Mode: design-review
 

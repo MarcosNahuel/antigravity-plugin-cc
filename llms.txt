@@ -1,6 +1,6 @@
 # Antigravity Plugin for Claude Code
 
-> Claude Code plugin that wraps Google's Antigravity CLI (`agy`, Gemini 3.x, multimodal) — the official replacement for `gemini-cli`. Its flagship is a **local NotebookLM** (`/agy:notebook`): sweep a whole folder of documents into per-document summaries, a relevance index and a cited master synthesis, keeping the heavy reading off Claude's context. Also audio/video transcription, deep web research with citations, code review, browser recording, web scraping, doc-to-markdown and design review — sixteen native slash commands.
+> Claude Code plugin that wraps Google's Antigravity CLI (`agy`, Gemini 3.x, multimodal) — the official replacement for `gemini-cli`. Its flagship is a **local NotebookLM** (`/agy:notebook`): sweep a whole folder of documents into per-document summaries, a relevance index and a cited master synthesis, keeping the heavy reading off Claude's context. Also audio/video transcription, deep web research with citations, code review, browser recording, web scraping, doc-to-markdown and design review — eighteen native slash commands.
 
 ## Why this exists right now
 
@@ -19,7 +19,7 @@ Source: https://developers.googleblog.com/an-important-update-transitioning-gemi
 - Underlying CLI: Google Antigravity (`agy`), the 2026 successor to `gemini-cli`, written in Go, natively multimodal (text + audio + video + images) and web-search grounded.
 - Model selection: `agy` 1.0.5+ accepts a `--model` flag, but it is unreliable (an unknown id silently falls back to the default). The reliable lever is the **`/agy:model`** command, which sets the active model by writing the label into `~/.gemini/antigravity-cli/settings.json`. Models available on a Pro account: Gemini 3.5 Flash (Low/Medium/High), Gemini 3.1 Pro (Low/High), Claude Sonnet 4.6, Claude Opus 4.6, GPT-OSS 120B.
 
-## Slash commands (16)
+## Slash commands (18)
 
 Document intelligence (the local NotebookLM):
 - `/agy:notebook <folder> | <objective>` — sweep a folder of documents (PDFs, scanned PDFs, images, docx) into one objective-driven summary per document + a relevance `INDEX.md` + a cited `RESUMEN_MAESTRO.md` + `TIMELINE.md` + `ENTIDADES.md`. Output in `docs/agy/notebook/`. Hybrid text/vision OCR; large scans auto-chunked; incremental cache keyed by the objective.

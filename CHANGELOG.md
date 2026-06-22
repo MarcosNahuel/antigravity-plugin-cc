@@ -4,6 +4,23 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] — 2026-06-22
+
+### Added — video vision + notebook contradiction audit (Phase 5)
+
+- **`/agy:video <file|URL> [focus]`** — *watch* a video and return a structured **visual** breakdown
+  (not just a transcript): a scene table with timestamps, on-screen text/OCR (slides, charts, UI,
+  captions), and key visual moments. Gemini is natively multimodal in video; Claude Code is not. New
+  `MODE: video` in the subagent; output to `docs/agy/video/`. Validated end-to-end on a real YouTube
+  video (accurate scene + OCR + key-moment breakdown in ~19s).
+- **`/agy:notebook-audit <folder>`** (KB roadmap Phase 5) — deterministic, read-only SQL audit over
+  `notebook.db` that finds the contradictions that matter for legal/administrative work: the same
+  concepto with conflicting amounts, the same DNI under two names, the same expediente with different
+  values, coverage gaps (`no_procesado` docs), and unparseable amounts → writes `CONTRADICCIONES.md`.
+  `scripts/notebook_audit.py`, pure stdlib. Validated on crafted contradictions (all six checks fire
+  correctly, DNI normalized across name/format variants).
+- 18 slash commands.
+
 ## [0.9.0] — 2026-06-22
 
 ### Added — optional semantic layer for the notebook KB (`--semantic`, hybrid retrieval)
