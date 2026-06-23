@@ -623,6 +623,11 @@ One document → one **objective-driven** summary (NOT a faithful conversion). P
    "eventos":[{"fecha":"YYYY-MM-DD","hecho":"","importe_cents":null,"quote":""}]}
   Rules: every monto carries `importe_cents` (integer cents); every fact row carries a short verbatim
   `quote`; absent data → empty array. This sidecar feeds a SQLite knowledge base.
+  RELACIONES (importante — alimentan el grafo de conocimiento): extraé ACTIVAMENTE las relaciones
+  sujeto–predicado–objeto entre las personas/organizaciones/referencias que listaste — quién hizo qué
+  a quién (ej. "X aprobó Y", "A contrató a B", "C reporta a D", "E pertenece a F", "G firmó H").
+  Si el texto conecta dos entidades, NO dejes `relaciones` vacío. Usá nombres de entidad consistentes
+  con los que pusiste en personas/organizaciones/referencias para que el grafo enlace bien.
 
   OUTPUT REQUIREMENT (CRITICAL): Do NOT print to chat. The two written files (.resumen.md + .facts.json)
   are your only deliverable.
@@ -755,7 +760,10 @@ granularity with no index-side change.
   Each sidecar is valid JSON in the SAME shape used by Mode: notebook (doc/tipo/doc_ref/fecha/
   emisor/relevancia/sintesis/datos_clave/personas[nombre,id]/organizaciones/montos[importe_cents]/
   fechas/referencias/relaciones/eventos), every fact row with a short `quote`, absent data → empty
-  array, NEVER invented. These sidecars feed a SQLite knowledge base.
+  array, NEVER invented. These sidecars feed a SQLite knowledge base. For `relaciones`, ACTIVELY
+  extract subject–predicate–object links between the entities (who did what to whom — "X aprobó Y",
+  "A contrató a B", "C reporta a D") using entity names consistent with personas/organizaciones/
+  referencias; do not leave it empty when the text connects two entities (this powers the graph).
 
   Never merge two documents into one file. Never skip a file. One .resumen.md + one .facts.json per
   input, same order. If a date/number is unreadable write "ilegible"; do NOT invent it.

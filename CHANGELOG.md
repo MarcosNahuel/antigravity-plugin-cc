@@ -4,6 +4,17 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] — 2026-06-23
+
+### Improved — agy now extracts relations (was always empty)
+
+- The `notebook` / `notebook-group` extraction prompts now **actively instruct agy to extract
+  subject–predicate–object relations** between entities ("X aprobó Y", "A contrató a B", "C reporta a
+  D"). Investigation showed `relaciones` was empty in every real notebook.db, leaving the relational
+  layer of the RAG and the knowledge graph unused. After the change, validated on a real agy run:
+  **8 relations extracted** across 2 docs → `relations=8` in the DB → `/agy:notebook-graph` now adds
+  those as explicit graph edges (richer graph + queryable relations). Additive only; no behavior break.
+
 ## [1.2.0] — 2026-06-23
 
 ### Added — `/agy:notebook-graph`: a graph view of the RAG, free + local
