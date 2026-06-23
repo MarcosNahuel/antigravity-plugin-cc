@@ -4,6 +4,20 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-06-23
+
+### Added — `/agy:notebook-graph`: a graph view of the RAG, free + local
+
+- **`/agy:notebook-graph <folder>`** turns a `notebook.db` into a knowledge GRAPH — a node-link
+  `graph.json` + a self-contained interactive `graph.html` (vis-network) — with **zero agy calls and
+  zero new deps** (pure stdlib). Investigation found agy almost never fills the explicit `relaciones`
+  array (relations=0 in every real notebook.db), so this derives edges from **entity co-occurrence
+  within documents** (the relational signal that needs no LLM) plus any explicit relations. Nodes =
+  deduped entities (persona/organizacion/referencia) + documents; reports the hub entities.
+- Validated on a real notebook.db: 6 nodes / 12 edges (co-occurrence + appears_in), correct hubs.
+- Complements `/agy:notebook-query` (exact SQL) and `/agy:graph` (Graphify/Gemini, for code + Leiden).
+- 21 slash commands.
+
 ## [1.1.0] — 2026-06-22
 
 ### Added — `/agy:graph`: knowledge graphs via Gemini, off Claude's tokens
