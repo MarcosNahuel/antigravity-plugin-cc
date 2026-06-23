@@ -4,6 +4,17 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] — 2026-06-23
+
+### Added — `/agy:notebook` reports the Claude tokens it saved
+
+- After a sweep, `/agy:notebook` Phase 3 now estimates and shows **how many of Claude's tokens it
+  saved** (`scripts/tokens_saved.py`, stdlib + optional tiktoken): `corpus` (tokens agy read) vs
+  `claude_reads` (the synthesis Claude actually consumes: RESUMEN_MAESTRO + INDEX) → `saved` + a
+  `~Nx less` ratio. Quantifies the plugin's core value (heavy reading runs in Gemini, off Claude's
+  context). Honest scope: scanned docs' OCR'd text isn't counted, so the real saving is higher.
+  Validated on a synthetic corpus (corpus~5060 vs reads~16 → ~316x).
+
 ## [1.3.0] — 2026-06-23
 
 ### Added — `/agy:setup` now reports the whole stack

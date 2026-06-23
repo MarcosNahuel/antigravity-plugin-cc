@@ -325,12 +325,25 @@ print(f"model restored -> {orig or '(unchanged)'}")
 PY
 ```
 
+Then estimate the **Claude tokens this sweep saved** (agy read the whole corpus; Claude only reads the
+synthesis) — ONE Bash call:
+
+```bash
+python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/tokens_saved.py" "$OUTDIR"
+```
+
+It prints `TOKENS_SAVED corpus~C claude_reads~R saved~S ratio~Xx` + a one-line summary. (Scanned docs
+make the real saving higher than reported.)
+
 Then read ONLY `<OUTDIR>/INDEX.md` and `<OUTDIR>/RESUMEN_MAESTRO.md` (they are small) and present:
 1. The objective and the doc counts (total / cached / text / vision / no_procesado).
 2. The TOP relevant documents from `INDEX.md`.
 3. The master summary's conclusion.
 4. The path to `<OUTDIR>` for the full per-document summaries, plus `TIMELINE.md` and `ENTIDADES.md`.
-5. Tip: ask follow-up questions over this corpus with `/agy:notebook-ask <folder> | <pregunta>`.
+5. Tip: ask follow-up questions with `/agy:notebook-ask`, query exact data with `/agy:notebook-query`,
+   or see the entity graph with `/agy:notebook-graph`.
+6. **Tokens saved**: the `saved~S (~Xx less)` figure — the heavy reading ran in Gemini via agy, off
+   Claude's context.
 
 Do NOT read the original documents or the per-document summaries yourself — that's the whole
 point (agy already did the reading). Only the two final files.
