@@ -4,6 +4,25 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-06-22
+
+### Added — `/agy:graph`: knowledge graphs via Gemini, off Claude's tokens
+
+- **`/agy:graph <folder>`** builds a knowledge GRAPH of a folder (code + docs) using
+  [Graphify](https://github.com/safishamsi/graphify) (MIT) with a new **`agy-cli` backend** this
+  plugin ships: **Gemini (via the Antigravity CLI `agy`) builds the graph** — tree-sitter ASTs +
+  NetworkX + Leiden communities + an interactive `graph.html` — authenticated by the user's
+  Antigravity/Google sign-in (no API key) and **off the host assistant's token budget**. Claude then
+  reads the small `graph.json` / `GRAPH_REPORT.md` to reason. Complements `/agy:notebook` (graphs =
+  relations/communities; notebook = multimodal docs + exact SQL).
+- The integration ships inside the plugin and installs on first use (opt-in heavier deps): the
+  `agy-cli` backend patch (`scripts/agy-cli-backend.patch`) + an idempotent installer
+  (`scripts/graphify_agy_install.py`) that clones graphify, applies the patch and `pip install -e`s it.
+  Validated end-to-end on a 4-doc corpus (18 nodes / 24 edges / 3 named communities, $0 Claude tokens).
+- **`docs/SETUP_AGENT_STACK.md`** — a paste-into-Claude-Code bootstrap prompt that checks/installs the
+  whole stack (agy, the plugin, PyMuPDF, optional sqlite-vec, graphify + agy-cli) and smoke-tests each.
+- 20 slash commands.
+
 ## [1.0.0] — 2026-06-22
 
 Stable 1.0 — repositioned as a **general-purpose NotebookLM replacement and capability pack for
