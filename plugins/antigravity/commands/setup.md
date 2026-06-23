@@ -4,6 +4,22 @@ argument-hint: ""
 allowed-tools: Bash
 ---
 
+## Phase 0 — Stack check (ONE Bash call, no agy)
+
+First report the whole agent stack — what's installed, what's missing, how to fix each — so the user
+knows which `/agy:*` capabilities are ready:
+
+```bash
+python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/stack_check.py"
+```
+
+It checks: **agy CLI** (required), **PyMuPDF/fitz** (required for `/agy:notebook` PDFs), **sqlite-vec**
+(optional — `/agy:notebook --semantic`), **ffmpeg** (optional — long media for `/agy:transcribe`), and
+**graphify + agy-cli backend** (optional — `/agy:graph`). Present the table and the fix line for
+anything missing. Prints `STACK n/5 present`.
+
+## Phase 1 — agy health ping
+
 Route this to the `antigravity:agy-rescue` subagent in MODE: setup.
 
 Pass this header block to the subagent:

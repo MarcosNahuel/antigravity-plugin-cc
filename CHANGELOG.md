@@ -4,6 +4,18 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-06-23
+
+### Added — `/agy:setup` now reports the whole stack
+
+- `/agy:setup` gains a Phase 0 stack check (`scripts/stack_check.py`, zero agy, stdlib): reports which
+  capabilities are ready and how to fix what's missing — **agy CLI** (required), **PyMuPDF** (required
+  for notebook PDFs), **sqlite-vec** (optional, `--semantic`), **ffmpeg** (optional, long media), and
+  **graphify + agy-cli backend** (optional, `/agy:graph`). Prints `STACK n/5 present`. Also reusable
+  by the `docs/SETUP_AGENT_STACK.md` bootstrap prompt. Validated (4/5 present, all required OK).
+- Verified `/agy:notebook-graph`'s `graph.html` renders correctly in a browser (vis-network
+  force-directed graph with colored entity/document nodes + relation edges).
+
 ## [1.2.1] — 2026-06-23
 
 ### Improved — agy now extracts relations (was always empty)
