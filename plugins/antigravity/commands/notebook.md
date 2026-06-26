@@ -349,6 +349,12 @@ Do NOT read the original documents or the per-document summaries yourself — th
 point (agy already did the reading). Only the two final files.
 
 ## Notes
+- **Scratch-then-move (speed, zero quality cost):** every agy call runs through
+  `scripts/agy_scratch.py`, which stages the read inputs in a fresh neutral scratch dir, runs
+  `agy --add-dir <scratch>` only (never the project), then moves the outputs to their canonical
+  `docs/agy/notebook/<slug>/` paths. This gives **0 untracked-file snapshots + 0 artifact-path
+  rejections** regardless of how dirty the working repo is (measured 15s→9s for the same doc, with
+  byte-identical extracted facts). agy gets the identical prompt + input bytes, so output is unchanged.
 - agy `--print` writes nothing to stdout outside a TTY (issue #76) — every agy call writes to a
   file; the subagent verifies the file exists. This command never relies on agy stdout.
 - 1 document per agy call (large multimodal batches time out), up to 10 calls per wave (see Phase 1).

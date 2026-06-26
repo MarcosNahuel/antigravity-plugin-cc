@@ -575,11 +575,18 @@ One document → one **objective-driven** summary (NOT a faithful conversion). P
 `/agy:notebook` sweep (a local NotebookLM): the caller fans this out, one call per document.
 
 - Timeout: `6m0s` (single document, summary not full transcription).
-- **Run agy from a NEUTRAL scratch CWD, not the project root** — `cd "$(mktemp -d 2>/dev/null || echo "$TEMP")"` (or any dir outside a git repo) right before invoking agy. Running with the CWD inside the calling git project makes agy 1.0.10 register it as a cascade "project" and **sandbox every `write_file` to `brain/<uuid>/`, then REJECT the absolute output path** ("not a valid artifact path") → the model replans/retries 3-5× per document (~4× slower) and also snapshots the repo's untracked files on startup. A neutral CWD avoids both. **Verified:** clean CWD = 1 write, ~10s; project CWD = 5 round-trips, ~43s for the same 1-page doc.
-- **Grant file access with repeatable `--add-dir` (NOT `--add-dir <CWD>`):** pass `--add-dir "<dirname of the file agy READS>"` **and** `--add-dir "<dirname of WRITE_FILE>"` (in `text` mode both are under the notebook output dir, so one suffices; in `vision` mode add the source document's folder too).
-- The file agy must READ depends on `INPUT_MODE`:
+- **Invoke agy via the scratch-then-move helper — do NOT call `agy` directly.** Run:
+  `python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/agy_scratch.py" --timeout 360 --in "<file agy READS>" --out "<WRITE_FILE>" --out "<WRITE_FILE with .resumen.md→.facts.json>" --prompt "<the prompt below>"`.
+  The helper stages the `--in` files into a fresh neutral scratch dir, runs `agy --add-dir <scratch>`
+  ONLY (never `--add-dir` the project), then **moves** each `--out` to its final path and prints
+  `MOVED <path>` / `MISSING <path>`. This gives **0 untracked-file snapshots + 0 artifact-path
+  rejections** (measured 15s→9s for the same doc, byte-identical facts) and is **repo-independent**.
+  ZERO quality cost: agy gets the identical prompt + input bytes and produces the identical output;
+  only the file's final location changes, after agy exits.
+- The file agy must READ (pass as `--in`) depends on `INPUT_MODE`:
   - `text` → `<TEXT_FILE>` (already-extracted plain text; cheaper/faster than vision).
   - `vision` → `<SOURCE_FILE>` (scanned PDF / image; agy uses multimodal OCR).
+  Pass BOTH outputs as `--out`: the `.resumen.md` AND its sibling `.facts.json`.
 - Prompt template:
 
   ```
@@ -642,7 +649,7 @@ All per-document summaries → a relevance **index** + a cited **master synthesi
 run after the whole sweep. Reads only the small `*.resumen.md` files.
 
 - Timeout: `8m0s`.
-- **Run agy from a neutral scratch CWD** (`cd "$(mktemp -d)"`), not the project root — see the rationale under `Mode: notebook` (project CWD → `brain/` artifact sandbox → write rejected → slow retries). Grant access with `--add-dir "<SUMMARIES_DIR>"` (it holds both the `*.resumen.md` inputs and the four output files); do NOT pass `--add-dir <CWD>`.
+- **Invoke agy via the scratch-then-move helper** (see `Mode: notebook` — gives 0 project snapshots + 0 write rejections, repo-independent, zero quality cost): `python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/agy_scratch.py" --timeout 480 --in-dir "<SUMMARIES_DIR>" --out "<INDEX_FILE>" --out "<MASTER_FILE>" --out "<TIMELINE_FILE>" --out "<ENTIDADES_FILE>" --prompt "<the prompt below>"`. `--in-dir` stages every `*.resumen.md` into scratch and rewrites the `SUMMARIES_DIR` reference in the prompt; the helper moves the four outputs to their final paths.
 - Prompt template:
 
   ```
@@ -690,7 +697,7 @@ Answer a question from the existing per-document summaries (the "chat" over a no
 Reads only the small `*.resumen.md` files — never the original documents.
 
 - Timeout: `5m0s`.
-- **Run agy from a neutral scratch CWD** (`cd "$(mktemp -d)"`), not the project root — see `Mode: notebook` (project CWD → `brain/` artifact sandbox → write rejected → slow retries). Grant access with `--add-dir "<SUMMARIES_DIR>"` (holds the `*.resumen.md` inputs and the answer file); do NOT pass `--add-dir <CWD>`.
+- **Invoke agy via the scratch-then-move helper** (see `Mode: notebook` — 0 project snapshots + 0 write rejections, repo-independent, zero quality cost): `python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/agy_scratch.py" --timeout 300 --in-dir "<SUMMARIES_DIR>" --out "<WRITE_FILE>" --prompt "<the prompt below>"`. `--in-dir` stages every `*.resumen.md` into scratch and rewrites the `SUMMARIES_DIR` reference; the helper moves the answer to its final path.
 - Prompt template:
 
   ```
@@ -722,7 +729,7 @@ file), each in the exact `Mode: notebook` shape, so `Mode: notebook-index` keeps
 granularity with no index-side change.
 
 - Timeout: `6m0s` (batch is char-budgeted ≤24k by the caller, so it stays well under the limit).
-- **Run agy from a neutral scratch CWD** (`cd "$(mktemp -d)"`), not the project root — see `Mode: notebook` (project CWD → `brain/` artifact sandbox → write rejected → slow retries). Grant access with `--add-dir "<dirname of the WRITE_FILES>"` (the notebook output dir, which also holds the `_text/` member files); do NOT pass `--add-dir <CWD>`.
+- **Invoke agy via the scratch-then-move helper** (see `Mode: notebook` — 0 project snapshots + 0 write rejections, repo-independent, zero quality cost): `python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/agy_scratch.py" --timeout 360 --in "<each MEMBER_FILE>" --out "<each WRITE_FILES member>" --out "<each member's .facts.json>" --prompt "<the prompt below>"`. Pass one `--in` per member text file and one `--out` per output file (the `.resumen.md` AND its `.facts.json`, for every member). The helper stages reads + writes in scratch, moves each member output to its final path, and prints `MOVED`/`MISSING` per file — re-send only the groups with a `MISSING` member.
 - `MEMBER_FILES` (a.k.a. `TEXT_FILES`) is a `|`-joined list of extracted-text paths; `MEMBER_NAMES`
   the matching display names; `WRITE_FILES` the matching `|`-joined output paths — all three in the
   SAME order, one entry per document.

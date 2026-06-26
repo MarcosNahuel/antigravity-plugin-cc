@@ -4,6 +4,25 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] — 2026-06-26
+
+### Improved — agy notebook calls are faster (scratch-then-move), zero quality cost
+
+- Investigation (60 session logs) found agy snapshots EVERY untracked file of any repo passed via
+  `--add-dir` on every call, and sandboxes write_file to project paths (rejection→replan round-trips).
+  New `scripts/agy_scratch.py` stages each call's read inputs in a fresh neutral scratch dir, runs
+  `agy --add-dir <scratch>` ONLY (never the project), then **moves** outputs to their canonical paths.
+  All four notebook modes (notebook / notebook-group / notebook-index / notebook-ask) now route
+  through it. **0 untracked-file snapshots + 0 artifact rejections, repo-independent** (the prior
+  gitignore band-aid only reached 10 snapshots and needed a clean repo).
+- **Measured A/B**: 15s/20-snapshots/2-rejections → **9s/0/0**, with **byte-identical extracted facts**
+  (same personas/orgs/relations). Zero quality cost: agy gets the identical prompt + input bytes and
+  produces identical output; only the file's final location changes, after agy exits. Validated both
+  the `--in` (single-file modes) and `--in-dir` (index/ask) paths end-to-end on a dirty repo.
+- The inherent agy cost (the ~5s boot + Gemini's agentic generation, median 14 model round-trips/call)
+  is NOT targeted — that's quality work, not waste. (A tested "do it in one step" directive made it
+  slower and was rejected.)
+
 ## [1.4.0] — 2026-06-23
 
 ### Added — `/agy:notebook` reports the Claude tokens it saved
