@@ -4,6 +4,26 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] — 2026-07-02
+
+### Fixed — Windows path normalization for `ask`/`review`/`report-analyze` (thanks @headsvk)
+
+- `TEMP_DIR`/`TEMP_FILE` in the `ask`, `review`, and `report-analyze` modes were built with a raw
+  `mktemp -d -t ...` (POSIX-style path, e.g. `/tmp/agy-ask-xxx`). That path travels embedded inside
+  the `--print` prompt text (a full sentence, not a bare CLI argument), so Git Bash's automatic
+  MSYS2 argv path translation — which only rewrites arguments that are themselves a pure path, like
+  `--add-dir /tmp/xxx` — never touches it. The native `agy.exe` then receives the literal POSIX
+  string and cannot resolve it, surfacing as the known issue #76 / Windows-rename symptoms.
+- Fix (PR #5): resolve `TEMP_DIR` via `cygpath -u` (POSIX form, for Bash) and `TEMP_FILE` via
+  `cygpath -m` (mixed-mode form, e.g. `C:/Users/...` — forward slashes + drive letter, readable by
+  both `agy.exe` and Bash tools like `test -f`/`cat`), with a no-op fallback to `${TMPDIR:-/tmp}` on
+  Unix where `cygpath` doesn't exist. Applied to `ask`, `review`, `report-analyze`, and the
+  `/agy:setup` ping self-test.
+- Verified end-to-end on Windows + Git Bash: reproduced the old POSIX-path failure mode, confirmed
+  the new mixed-mode path resolves correctly for both a native writer and Bash readers, and test-merged
+  cleanly against v1.4.1 (no overlap with `agy_scratch.py`'s scratch-then-move, which only covers the
+  `notebook*` modes).
+
 ## [1.4.1] — 2026-06-26
 
 ### Improved — agy notebook calls are faster (scratch-then-move), zero quality cost
