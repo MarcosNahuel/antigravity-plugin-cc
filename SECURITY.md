@@ -9,6 +9,10 @@ If you find a security issue in this plugin (the plugin source — not in `agy` 
 
 I'll respond within 7 days.
 
+## Credentials
+
+This plugin never asks for, stores, or proxies your Anthropic/Claude Pro or Max credentials, nor any API key. It shells out to your locally installed `agy` CLI and inherits **your own Google OAuth session** (the one you set up the first time you ran `agy` interactively) — bring-your-own-key / bring-your-own-login. No account tokens pass through this plugin's code.
+
 ## Scope
 
 In scope:
