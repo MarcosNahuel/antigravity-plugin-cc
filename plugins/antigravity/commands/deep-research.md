@@ -98,21 +98,18 @@ an object here). `deepDir` and `title` must be final, absolute/resolved values �
   this substep and leave `groundedContext` exactly as the workflow returned it.
 - **Render** — do not hand-roll the markdown format. Call `renderReportMarkdown(report, meta)` from
   `deep-research-lib.mjs`, the single source of truth (also what the workflow's own tests check
-  against). Write `{ report, meta }` to a temp JSON file, then run it through Node in one Bash call:
+  against). Write `{ report, meta }` to `<DEEP_DIR>/_render.json`, then run it through the
+  `render-report.mjs` CLI in one Bash call:
 
   ```bash
-  LIB_PATH="${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/deep-research-lib.mjs"
-  node --input-type=module -e "
-    import { renderReportMarkdown } from '$LIB_PATH';
-    import { readFileSync } from 'node:fs';
-    const j = JSON.parse(readFileSync(process.argv[1], 'utf8'));
-    process.stdout.write(renderReportMarkdown(j.report, j.meta));
-  " "<TEMP_JSON>" > "<WRITE_FILE>"
+  node "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/render-report.mjs" "<DEEP_DIR>/_render.json" > "<WRITE_FILE>"
   ```
 
   where `meta = { title: <topic>, depth: <L|H>, rounds: <result.rounds>, converged: <result.converged>, date: <DATE> }`.
-  (If `LIB_PATH` ever fails to resolve as an ESM import specifier — e.g. a backslash-heavy Windows
-  path — fall back to a `file://` URL built from the same absolute path.)
+  `render-report.mjs` imports the lib with a relative specifier (`./deep-research-lib.mjs`), which is
+  drive-letter-safe on Windows — an absolute `C:\...`/`C:/...` path used directly as an ESM import
+  specifier makes Node throw `ERR_UNSUPPORTED_ESM_URL_SCHEME` (it reads the drive letter as a URL
+  scheme), so never inline the lib path into a `node -e` one-liner.
 - Dump `{ findings: report.findings, coverage: report.coverage, rounds, converged }` to
   `<DEEP_DIR>/ledger.json` for audit/debugging.
 
