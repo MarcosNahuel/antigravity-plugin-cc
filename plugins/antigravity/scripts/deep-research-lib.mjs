@@ -53,3 +53,12 @@ export function ingestRound(roundResults, state, round) {
   }
   return novel
 }
+
+export function isConverged({ coverage, matrix, lastRoundChangedMaterially, openCriticalThreads }) {
+  const critical = (matrix || []).filter(m => m.recommendationChanging)
+  const allAnswered = critical.every(m => {
+    const c = (coverage || []).find(x => x.matrixId === m.id)
+    return c && c.status === 'answered' && c.corroboration === 'independent'
+  })
+  return allAnswered && !lastRoundChangedMaterially && (openCriticalThreads || 0) === 0
+}

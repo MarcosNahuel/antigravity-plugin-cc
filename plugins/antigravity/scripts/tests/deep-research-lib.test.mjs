@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { normURL, domainOf, distinctDomains, corroborationOf, ingestRound } from '../deep-research-lib.mjs'
+import { normURL, domainOf, distinctDomains, corroborationOf, ingestRound, isConverged } from '../deep-research-lib.mjs'
 
 test('normURL strips www, scheme, trailing slash, lowercases', () => {
   assert.equal(normURL('https://WWW.Example.com/Path/'), 'example.com/path')
@@ -31,4 +31,16 @@ test('ingestRound: assigns ids, dedups by source+claim, records failed angles', 
   assert.equal(state.findings[0].id, 'f0')
   assert.equal(state.findings[0].corroboration, 'single-source')
   assert.deepEqual(state.failedAngles, ['B'])
+})
+
+test('isConverged: needs all recommendation-changing rows answered+independent, stable, no open threads', () => {
+  const matrix = [{ id:'m1', recommendationChanging:true }, { id:'m2', recommendationChanging:false }]
+  const good = [{ matrixId:'m1', status:'answered', corroboration:'independent', confidence:'high' }]
+  assert.equal(isConverged({ coverage:good, matrix, lastRoundChangedMaterially:false, openCriticalThreads:0 }), true)
+  // single-source m1 → not converged
+  assert.equal(isConverged({ coverage:[{ matrixId:'m1', status:'answered', corroboration:'single-source', confidence:'high' }], matrix, lastRoundChangedMaterially:false, openCriticalThreads:0 }), false)
+  // last round changed something → not converged
+  assert.equal(isConverged({ coverage:good, matrix, lastRoundChangedMaterially:true, openCriticalThreads:0 }), false)
+  // open critical thread → not converged
+  assert.equal(isConverged({ coverage:good, matrix, lastRoundChangedMaterially:false, openCriticalThreads:2 }), false)
 })
