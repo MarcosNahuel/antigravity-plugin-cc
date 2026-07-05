@@ -1,5 +1,5 @@
 ---
-description: Run deep web research with Antigravity (agy) at chosen intensity. Saves output to docs/agy/research/ automatically.
+description: Quick single-shot web research with agy at chosen intensity (low/medium/high) → docs/agy/research/. For fast lookups and lightweight source-gathering. When a decision depends on it and you need deep, multi-round, fact-checked research, use /agy:deep-research instead.
 argument-hint: "[--background] [--intensity low|medium|high] <topic>"
 context: fork
 allowed-tools: Bash, Write
