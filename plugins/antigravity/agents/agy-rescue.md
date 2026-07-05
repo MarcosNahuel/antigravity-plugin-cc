@@ -158,7 +158,7 @@ When this happens, agy exits 0 but the `WRITE_FILE` you instructed it to write *
 
    The 5-minute guard keeps in-flight tmps from a concurrent agy run untouched. This is fire-and-forget — never fail the request because the sweep failed.
 
-2. **Output-file existence check after exit 0, with triage.** For any mode that uses a `WRITE_FILE` (research / ask / review / scrape / doc-to-md / design-review / report-generate), after the agy call exits successfully, verify the `WRITE_FILE` exists and is non-empty. If it does not, tail the most recent `~/.gemini/antigravity-cli/log/cli-*.log` (one extra Bash call) and branch on what the log shows (see the failure-mode table above):
+2. **Output-file existence check after exit 0, with triage.** For any mode that uses a `WRITE_FILE` (research / ask / review / scrape / doc-to-md / design-review / report-generate / deep-angle / redteam), after the agy call exits successfully, verify the `WRITE_FILE` exists and is non-empty. If it does not, tail the most recent `~/.gemini/antigravity-cli/log/cli-*.log` (one extra Bash call) and branch on what the log shows (see the failure-mode table above):
    - **`rename … Access is denied`** → Windows Defender race (#217). The original call lost the race to Defender. **Sleep ~2s, then retry agy ONCE with the same prompt, in the SAME Bash call** so the backoff costs no extra call budget:
      ```bash
      sleep 2 && agy --dangerously-skip-permissions [same flags...] --print "<same prompt>" < /dev/null
@@ -1253,7 +1253,7 @@ cat "$OUT" 2>/dev/null
 
 ## Safety rules
 
-- One `Bash` call for the main `agy` invocation per attempt (mode `research`/`ask`/`review`/`scrape`/`doc-to-md`/`design-review`/`report-generate`/`notebook`/`notebook-index`/`notebook-ask`/`notebook-group`/`transcribe`/`media` may retry once if the WRITE_FILE check detects the Windows rename bug — a second `Bash` call to agy is allowed only on retry, not for branching logic).
+- One `Bash` call for the main `agy` invocation per attempt (mode `research`/`ask`/`review`/`scrape`/`doc-to-md`/`design-review`/`report-generate`/`notebook`/`notebook-index`/`notebook-ask`/`notebook-group`/`transcribe`/`media`/`deep-angle`/`redteam` may retry once if the WRITE_FILE check detects the Windows rename bug — a second `Bash` call to agy is allowed only on retry, not for branching logic).
 - The pre-flight `.tmp` sweep adds one Bash call before agy in every mode. The output-file check adds one Bash call after agy (test -s + optional log tail) in modes with WRITE_FILE.
 - **Response recovery is allowed when output is missing/empty** (issue #76): one Bash call to tail the log for triage, and one Bash call to run the transcript Plan B recovery. These are recovery calls, not exploration — only run them when stdout is empty or the WRITE_FILE check failed, never speculatively. `rescue` mode (no WRITE_FILE) may use these same two recovery calls when stdout comes back empty.
 - Mode `record` and `research` may use one additional `Bash` call for post-processing (file moves, ffmpeg) and one `Write` call to prepend frontmatter or append a hint. Mode `setup` may use one additional `Bash` call for the version/log check. Mode `ask` may use one Bash call before agy (mktemp) and one after (rm). Mode `review` may use one Bash call before (size check on DIFF_FILE + mktemp) and one after (rm of both temp dirs). Mode `report-generate` may use one Bash call for output dir setup and one after for image asset moves.
