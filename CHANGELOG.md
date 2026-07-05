@@ -4,6 +4,27 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-07-05
+
+### Added
+
+- `/agy:deep-research [--depth L|H] [--background] [--yes] [--engines agy|mixed] <topic>` — deep
+  research multi-agente sobre el motor de Workflows: agy browsea en paralelo por ángulo, Claude razona
+  el análisis global y la convergencia entre rondas (depth `L`≤2 rondas / `H`≤4 rondas), red-team con
+  agy sobre los claims centrales/de fuente única, gate de plan (salvo `--yes`/`--background`), y una
+  recomendación aplicada grounded en memoria/repo local cuando el tema lo pide. Complementa (no
+  reemplaza) `/agy:research`, que sigue siendo el single-shot rápido. `--engines mixed` queda aceptado
+  pero hoy se comporta igual que `agy` (no hay un segundo motor de browsing wireado todavía).
+- `deep-research-agy` Workflow (`scripts/deep-research-agy.js`) — orquesta las rondas, el red-team y
+  la síntesis; `report.coverage` sale pre-poblado (determinístico) para que el comando renderice
+  directo sin recalcular nada.
+- `scripts/deep-research-lib.mjs` — fuente de verdad de los helpers puros (`normURL`, `corroborationOf`,
+  `ingestRound`, `isConverged`, `computeCoverage`, `rankClaimsForRedTeam`, `applyRedTeam`,
+  `renderReportMarkdown`) + tests (`node --test`), con un test de sync que garantiza que la copia
+  inlined en el Workflow nunca diverge de la lib.
+- `agy-rescue`: modos `deep-angle` y `redteam` para el browsing por ángulo y el desafío adversarial de
+  claims.
+
 ## [1.4.2] — 2026-07-02
 
 ### Fixed — Windows path normalization for `ask`/`review`/`report-analyze` (thanks @headsvk)
