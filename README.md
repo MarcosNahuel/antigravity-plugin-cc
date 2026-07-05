@@ -1,10 +1,11 @@
 # Antigravity Plugin for Claude Code
 
-> **A local NotebookLM — and 20 more commands — for Claude Code, powered by Google Antigravity (`agy` / Gemini 3.x), the official CLI that replaces the now-deprecated `gemini-cli`. Read whole folders of documents, transcribe audio & video, and research the web with citations — locally, offloading the heavy reading to Gemini so it barely touches Claude's context.**
+> **A local NotebookLM, multi-agent deep research, and 21 more commands — for Claude Code, powered by Google Antigravity (`agy` / Gemini 3.x), the official CLI that replaces the now-deprecated `gemini-cli`. Read whole folders of documents, transcribe audio & video, and research the web with citations — locally, offloading the heavy reading to Gemini so it barely touches Claude's context.**
 
 **Project page:** [traidagency.com/labs/antigravity](https://traidagency.com/labs/antigravity) — built by [TRAID](https://traidagency.com).
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Status: alpha](https://img.shields.io/badge/status-alpha%20%2F%20experimental-orange.svg)]()
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-7c3aed)](https://docs.claude.com/en/docs/claude-code/plugins)
 [![Antigravity CLI](https://img.shields.io/badge/Google-Antigravity%20CLI-4285F4)](https://antigravity.google)
 [![Made with agy](https://img.shields.io/badge/Made%20with-agy-34a853)](https://github.com/MarcosNahuel/antigravity-plugin-cc)
@@ -19,7 +20,7 @@
 >
 > **If you were using [`gemini-plugin-cc`](https://github.com/abiswas97/gemini-plugin-cc) inside Claude Code, this plugin is your migration path.** It targets `agy` directly. Enterprise users on Code Assist Standard/Enterprise licenses are not affected by the cutoff.
 
-**TL;DR** — `/agy:notebook <folder> | <objective>` turns a folder of documents into a **local NotebookLM**: one objective-driven summary per document, a relevance `INDEX.md`, a cited `RESUMEN_MAESTRO.md`, a `TIMELINE.md` and an `ENTIDADES.md` — then `/agy:notebook-ask` answers questions over them **with citations**. All the heavy reading runs in Gemini 3.x via `agy`, so it barely touches Claude's context. Plus **audio & video transcription** (`/agy:transcribe`, `/agy:media`), deep web research with citations, branded HTML reports, git-diff code review, doc-to-markdown, browser recording and more. **No Node.js runtime. No MCP gymnastics. Twenty-one slash commands.**
+**TL;DR** — `/agy:notebook <folder> | <objective>` turns a folder of documents into a **local NotebookLM**: one objective-driven summary per document, a relevance `INDEX.md`, a cited `RESUMEN_MAESTRO.md`, a `TIMELINE.md` and an `ENTIDADES.md` — then `/agy:notebook-ask` answers questions over them **with citations**. `/agy:deep-research <topic>` runs **multi-agent deep research**: an evidence matrix + plan you approve, `agy` browsing each angle in parallel while Claude orchestrates adaptive rounds (`--depth L<=2 / H<=4`) plus a red-team pass, landing on a cited, applied recommendation. All the heavy reading and browsing runs in Gemini 3.x via `agy`, so it barely touches Claude's context. Plus **audio & video transcription** (`/agy:transcribe`, `/agy:media`), single-shot web research with citations, branded HTML reports, git-diff code review, doc-to-markdown, browser recording and more. **No Node.js runtime. No MCP gymnastics. Twenty-two slash commands.**
 
 [**Install**](#install) · [**Slash commands**](#slash-commands) · [**Examples**](#usage-examples) · [**FAQ**](#faq) · [**Compare to alternatives**](#compared-to-alternatives) · [**Project page**](https://traidagency.com/labs/antigravity)
 
@@ -43,7 +44,7 @@
 
 - **Antigravity CLI** (`agy`) is Google's official agentic command-line assistant — released at Google I/O 2026 as the successor to `gemini-cli`. Rewritten in Go for speed, with native web-search grounding built into Gemini 3.x and **multi-provider model support** (Gemini, Claude, GPT-OSS).
 - **Claude Code** is Anthropic's CLI for AI-assisted software engineering.
-- This plugin **bridges the two**: from inside Claude Code, you invoke `/agy:notebook`, `/agy:research`, `/agy:report`, `/agy:ask`, `/agy:review`, `/agy:rescue`, `/agy:record`, `/agy:scrape`, `/agy:doc-to-md`, `/agy:design-review`, or `/agy:setup` and the request gets handed to `agy --print` via a thin Bash forwarder.
+- This plugin **bridges the two**: from inside Claude Code, you invoke `/agy:notebook`, `/agy:deep-research`, `/agy:research`, `/agy:report`, `/agy:ask`, `/agy:review`, `/agy:rescue`, `/agy:record`, `/agy:scrape`, `/agy:doc-to-md`, `/agy:design-review`, or `/agy:setup` and the request gets handed to `agy --print` via a thin Bash forwarder.
 
 The killer use case is **deep web research with citations** — Claude reasons over your repo, `agy` reasons over the live web. Each tool does what it's best at.
 
@@ -156,7 +157,8 @@ roughly under ~30 minutes to stay within the timeout, or split long recordings w
 | `/agy:transcribe <audio\|video\|URL> [focus]` | **Transcribe + summarize audio or video** (or a YouTube/remote URL) with Gemini — voice notes, meetings, calls, screencasts. Timestamps for video. *Claude can't hear; agy can.* Saves to `docs/agy/transcripts/`. |
 | `/agy:media <file\|URL> \| <question>` | **Multimodal Q&A over audio / video / image** — "what decisions were made?", "what happens at 2:30?", "what's the tone?". Grounded, with time references. Saves to `docs/agy/media/`. |
 | `/agy:model [alias\|"label"]` | **Show or switch the agy model** by writing `settings.json` (the reliable lever; `--model` is unreliable). Aliases: `flash-low`, `pro`, `pro-high`, `sonnet`, `opus`, `gpt-oss`. No agy call, no reinstall. |
-| `/agy:research <topic> [--intensity low\|medium\|high]` | **Deep web research.** Saves to `docs/agy/research/YYYY-MM-DD-<slug>.md`. Default: `medium`. |
+| `/agy:deep-research <topic> [--depth L\|H] [--background] [--yes]` | **Multi-agent deep research** — evidence matrix + plan gate, `agy` browses each angle while Claude orchestrates adaptive rounds (`L<=2` / `H<=4`) plus a red-team pass, then returns a cited report with an applied recommendation. Complements the single-shot `/agy:research`. Saves to `docs/agy/research/YYYY-MM-DD-<slug>.md`. |
+| `/agy:research <topic> [--intensity low\|medium\|high]` | **Single-shot web research.** Saves to `docs/agy/research/YYYY-MM-DD-<slug>.md`. Default: `medium`. |
 | `/agy:report <markdown> [--template <id>] [--images native\|external\|none]` | **Branded HTML document from a markdown source** using the TRAID Design System (5 templates) — turns your `.md` (with `![generate: ...]` cues) into a publication-grade page with infographics. Saves to `docs/agy/reports/`. See [Infographics](#documents-with-infographics--agyreport). |
 | `/agy:ask <prompt>` | **One-shot quick prompt** to agy; returns the answer verbatim, no file persistence. |
 | `/agy:review [focus]` | **Code review** of the current `git diff` with optional focus. |
@@ -227,6 +229,18 @@ You should see the binary path, version, and a `pong` from a 30-second test ping
 ---
 
 ## Usage examples
+
+### Multi-agent deep research — `/agy:deep-research`
+
+```
+/agy:deep-research modular ERP architecture for MercadoLibre sellers in Latam --depth H
+```
+
+→ Claude decomposes the topic into an evidence matrix + 3-6 browsing angles, shows you the plan gate,
+then `agy` browses each angle in parallel per round while Claude judges coverage/convergence across
+up to 4 rounds, runs a red-team pass against the recommendation-changing claims, and writes a cited
+report with evidence/inference/assumption tags plus an applied recommendation. Heavier and slower than
+`/agy:research` — reach for it when a decision depends on getting it right, not on speed.
 
 ### Quick fact check — `low` intensity
 
@@ -491,6 +505,12 @@ Built by **Marcos Nahuel Albornoz** — co-founder & PM at [**TRAID**](https://t
 - Email: [contact@traidai.com](mailto:contact@traidai.com)
 
 If this plugin saves you time, a ⭐ on the repo is the best way to say thanks. Pull requests, issues, and feature ideas all welcome.
+
+---
+
+## Disclaimer
+
+This is an independent, community project — **alpha / experimental**. It is **not affiliated with, endorsed by, or sponsored by Google LLC or Anthropic PBC.** "Google Antigravity", "Gemini", "Claude", and "Claude Code" are trademarks of their respective owners; this project merely wraps their publicly documented CLIs, which you run with **your own credentials** (bring-your-own-key / your own Google login — the plugin never scrapes or proxies your account tokens). Use at your own risk; **not warranted for production-critical workloads.** See [LICENSE](LICENSE) and [SUPPORT.md](SUPPORT.md).
 
 ---
 

@@ -28,9 +28,12 @@ prefers focused resources over general-purpose marketplaces.
   > of documents (PDFs, scans, images, docx) via Google Antigravity's `agy` CLI (Gemini 3.x, multimodal)
   > and writes a per-document summary, a relevance index, a **cited** master synthesis, a timeline and an
   > entity sheet — then `/agy:notebook-ask` answers questions over them with citations. All the document
-  > reading happens in Gemini, so it barely touches Claude's context. Also transcribes audio/video
-  > (`/agy:transcribe`, `/agy:media`) — things Claude Code can't do natively. The `agy` bridge and a
-  > migration path off the deprecated `gemini-cli`. MIT, no Node runtime.
+  > reading happens in Gemini, so it barely touches Claude's context. Also adds `/agy:deep-research` —
+  > multi-agent deep research (evidence matrix + plan gate, parallel per-angle browsing, adaptive
+  > convergence rounds, a red-team pass on single-source claims, a report explicit about its own
+  > coverage) — and transcribes audio/video (`/agy:transcribe`, `/agy:media`), things Claude Code can't
+  > do natively. The `agy` bridge and a migration path off the deprecated `gemini-cli`. Twenty-two
+  > commands. MIT, no Node runtime, alpha/experimental, not affiliated with Google or Anthropic.
 
 - **Install:**
   ```
@@ -68,5 +71,6 @@ contributions for "your own marketplace". A PR adding the marketplace line is ap
 ```
 /plugin marketplace add MarcosNahuel/antigravity-plugin-cc
 ```
-with the one-liner: *"agy/Gemini bridge for Claude Code — a local NotebookLM, audio/video transcription,
-web research, branded reports. 15 commands."* Check their `CONTRIBUTING` for the exact file to edit.
+with the one-liner: *"agy/Gemini bridge for Claude Code — a local NotebookLM, multi-agent deep
+research (`/agy:deep-research`), audio/video transcription, branded reports. 22 commands."* Check
+their `CONTRIBUTING` for the exact file to edit.
