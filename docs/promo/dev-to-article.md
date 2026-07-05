@@ -1,17 +1,25 @@
 ---
-title: "I built a local NotebookLM as a Claude Code plugin (on Google's new `agy` CLI)"
+title: "I built a local NotebookLM (and a multi-agent research loop) as a Claude Code plugin, on Google's new `agy` CLI"
 published: false
-description: "How I turned a folder of documents into a grounded, cited, local NotebookLM — by bridging Claude Code to Google Antigravity's agy CLI. Plus the agy gotchas that cost me a day."
+description: "How I turned a folder of documents into a grounded, cited, local NotebookLM, and later a multi-agent deep-research loop, by bridging Claude Code to Google Antigravity's agy CLI. Plus the agy/Windows gotchas that cost real hours."
 tags: claudecode, gemini, ai, opensource
 canonical_url: https://github.com/MarcosNahuel/antigravity-plugin-cc
 cover_image: ""
 ---
 
+> **Note before you read this as a launch post: it isn't one.** This is a build log — what the
+> problem was, how the bridge works, and the specific bugs that cost real time. The project is
+> **alpha/experimental**, MIT-licensed, and **not affiliated with or endorsed by Google or
+> Anthropic** — it just talks to their publicly documented CLIs, with your own credentials.
+
 > **TL;DR** — `/agy:notebook <folder> | <objective>` reads a whole folder of documents (PDFs,
 > scans, images, docx) with Gemini 3.x and produces a per-document summary, a relevance index, a
 > cited master synthesis, a timeline and an entity sheet — then `/agy:notebook-ask` answers questions
-> over them **with citations**. It runs locally, on your own Gemini account, and barely touches
-> Claude's context. It's one of 19 commands in [`antigravity-plugin-cc`](https://github.com/MarcosNahuel/antigravity-plugin-cc).
+> over them **with citations**. `/agy:deep-research <topic>` runs the same "let Gemini do the heavy
+> lifting" idea on the open web: a multi-agent loop with a plan gate, parallel browsing per angle,
+> a red-team pass, and a report that's explicit about what it didn't manage to cover. Both run
+> locally, on your own Gemini account, and barely touch Claude's context. They're two of 22
+> commands in [`antigravity-plugin-cc`](https://github.com/MarcosNahuel/antigravity-plugin-cc).
 
 ## Why
 
@@ -85,6 +93,44 @@ If you build on `agy --print`, save yourself the pain:
    for the synthesis automatically.
 5. **Rate limits are per-minute.** ~10 RPM on free. A concurrency cap + 60s backoff beats blind
    parallelism.
+6. **Windows argument translation only rewrites bare paths (community-reported, thanks @headsvk).**
+   Git Bash auto-translates POSIX-looking arguments into Windows paths via MSYS2's argv rewriting —
+   but only when the argument *is* a path by itself, like `--add-dir /tmp/xxx`. A temp path embedded
+   inside a full prompt **sentence** passed to `agy --print` never gets touched, so `agy.exe`
+   receives a literal `/tmp/...` string it can't resolve — which looks exactly like the issue #76
+   symptom above, but isn't. The actual fix: resolve the path through `cygpath -u` (for Bash) and
+   `cygpath -m` (mixed-mode, readable by both the native binary and Bash tools) before it goes
+   anywhere near the prompt text, with a no-op fallback on real Unix where `cygpath` doesn't exist.
+
+## Multi-agent deep research: `/agy:deep-research`
+
+The notebook command above offloads *reading* to Gemini. The newest command, `/agy:deep-research`,
+offloads *web research* the same way — but the interesting part isn't the offloading, it's making
+the result trustworthy instead of "an LLM skimmed some pages and wrote a summary."
+
+The loop:
+
+1. **Evidence matrix, not just a topic.** Claude decomposes the question into rows —
+   `{ question, evidenceType, sourceQualityBar, recommendationChanging }` — before any browsing
+   happens. `recommendationChanging: true` marks the rows whose answer could flip the final
+   conclusion; those get weighed harder later.
+2. **A plan you approve.** The matrix plus 3-6 research angles are shown before anything runs
+   (skippable with `--yes`/`--background` once you trust the shape of the plan).
+3. **Parallel browsing per angle, judged for convergence.** `agy` browses each angle concurrently;
+   Claude reads the round's findings and decides whether another round would actually change the
+   answer (`--depth L` caps at 2 rounds, `H` at 4) — instead of running a fixed number of passes
+   regardless of whether they're adding anything.
+4. **A red-team pass.** A separate `agy` call specifically attacks the claims that are
+   single-source or load-bearing for the recommendation, before synthesis ever sees them.
+5. **Honest coverage, by design.** The final report doesn't present everything with the same
+   confidence. It states which angles completed and which were dropped, which
+   `recommendationChanging` questions are still open, and which claims got downgraded to
+   "single-source" after the red-team pass — a structured admission of what the research *didn't*
+   manage to close, not just what it found. Overstating coverage is a design decision to avoid, not
+   an accident to catch later.
+
+`report.coverage` comes out pre-computed and deterministic, so the command renders the final
+markdown straight from it — no re-scoring, no LLM re-grading its own homework at write time.
 
 ## Try it
 
@@ -97,10 +143,17 @@ If you build on `agy --print`, save yourself the pain:
 /agy:notebook  ./my-docs | what are the key facts and dates?
 ```
 
-19 commands total — also audio/video transcription, media Q&A, deep web research with citations,
-branded HTML reports, code review, doc-to-markdown, browser recording, web scraping and UX audits.
-MIT, no runtime deps.
+22 commands total — also audio/video transcription, media Q&A, single-shot web research, branded
+HTML reports, code review, doc-to-markdown, browser recording, web scraping and UX audits. MIT, no
+runtime deps, alpha, not affiliated with Google or Anthropic.
 
-⭐ [github.com/MarcosNahuel/antigravity-plugin-cc](https://github.com/MarcosNahuel/antigravity-plugin-cc)
+[github.com/MarcosNahuel/antigravity-plugin-cc](https://github.com/MarcosNahuel/antigravity-plugin-cc)
 
-*What would you point a local NotebookLM at? I'd love to hear it in the comments.*
+*What would you point a local NotebookLM at, or what would you want a research loop to red-team
+before you trusted it? I'd love to hear it in the comments.*
+
+---
+
+I'm Nahuel, an AI engineer and co-founder at [TRAID](https://traidagency.com), where we build
+automation and AI systems for e-commerce in LATAM/USA — this plugin is a side project, not a TRAID
+product, but the same "don't overstate what the system actually did" instinct runs through both.
