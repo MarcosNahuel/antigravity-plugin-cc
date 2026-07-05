@@ -142,7 +142,10 @@ const REDTEAM_SCHEMA = { type:'object', required:['claim','refuted','verdict'], 
   refutingSource:{type:['string','null']}, recencyOk:{type:'boolean'},
   verdict:{enum:['hold','downgrade','kill']}, newConfidence:{enum:['high','medium','low']} } }
 
-const { question, matrix, angles, depth, engines, deepDir, date, title } = args
+// The engine may deliver `args` as a JSON string; parse defensively so the
+// command (or a manual invocation) can pass either an object or a string.
+const _args = typeof args === 'string' ? JSON.parse(args) : (args || {})
+const { question, matrix, angles, depth, engines, deepDir, date, title } = _args
 const MAX_ROUNDS = depth === 'H' ? 4 : 2
 const RT_TARGETS = depth === 'H' ? 10 : 5
 const ANGLE_TIMEOUT = depth === 'H' ? '4m0s' : '3m0s'
