@@ -96,12 +96,22 @@ export function rankClaimsForRedTeam(findings, limit) {
 export function applyRedTeam(findings, verdicts) {
   const byClaim = new Map()
   for (const v of verdicts || []) if (v && v.claim) byClaim.set(v.claim, v)
+  const result = []
   for (const f of findings) {
     const v = byClaim.get(f.claim)
-    if (!v) continue
-    f.redteam = { verdict: v.verdict, refutingSource: v.refutingSource || null, evidence: v.refutingEvidence || '' }
-    if (v.verdict === 'kill') { f.confidence = 'low'; f.killed = true }
-    else if (v.verdict === 'downgrade') { f.confidence = v.newConfidence || 'low' }
+    // Skip killed findings (do not add to result)
+    if (v && v.verdict === 'kill') continue
+    // Create new finding object (shallow copy) — never mutate input
+    const newFinding = { ...f }
+    // Add redteam field if verdict exists
+    if (v) {
+      newFinding.redteam = { verdict: v.verdict, refutingSource: v.refutingSource || null, evidence: v.refutingEvidence || '' }
+      // Downgrade confidence if downgrade verdict
+      if (v.verdict === 'downgrade') {
+        newFinding.confidence = v.newConfidence || 'low'
+      }
+    }
+    result.push(newFinding)
   }
-  return findings.filter(f => !f.killed)
+  return result
 }

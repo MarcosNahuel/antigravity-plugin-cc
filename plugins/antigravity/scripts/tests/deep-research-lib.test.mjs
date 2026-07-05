@@ -67,16 +67,33 @@ test('rankClaimsForRedTeam picks central or single-source, capped', () => {
   assert.deepEqual(picked.sort(), ['c1','c2'])
 })
 
-test('applyRedTeam kills and downgrades', () => {
+test('applyRedTeam kills and downgrades (pure: no input mutation)', () => {
   const findings = [
-    { id:'f0', claim:'c1', confidence:'high' },
-    { id:'f1', claim:'c2', confidence:'high' },
+    { id:'f0', claim:'c1', confidence:'high', redteam: null },
+    { id:'f1', claim:'c2', confidence:'high', redteam: null },
   ]
+  // Save original state for purity verification
+  const origF0Confidence = findings[0].confidence
+  const origF1Confidence = findings[1].confidence
+  const origF0Redteam = findings[0].redteam
+  const origF1Redteam = findings[1].redteam
+
   const alive = applyRedTeam(findings, [
     { claim:'c1', verdict:'kill' },
     { claim:'c2', verdict:'downgrade', newConfidence:'low' },
   ])
+
+  // Verify output correctness
   assert.equal(alive.length, 1)
   assert.equal(alive[0].claim, 'c2')
   assert.equal(alive[0].confidence, 'low')
+  assert.equal(alive[0].redteam.verdict, 'downgrade')
+
+  // Verify input was NOT mutated (purity)
+  assert.equal(findings[0].confidence, origF0Confidence, 'f0 confidence should not be mutated')
+  assert.equal(findings[1].confidence, origF1Confidence, 'f1 confidence should not be mutated')
+  assert.equal(findings[0].redteam, origF0Redteam, 'f0 redteam should not be mutated')
+  assert.equal(findings[1].redteam, origF1Redteam, 'f1 redteam should not be mutated')
+  assert.equal(findings[0].killed, undefined, 'f0 should not have killed property')
+  assert.equal(findings[1].killed, undefined, 'f1 should not have killed property')
 })
