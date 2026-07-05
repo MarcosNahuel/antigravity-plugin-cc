@@ -141,6 +141,19 @@ const REDTEAM_SCHEMA = { type:'object', required:['claim','refuted','verdict'], 
   claim:{type:'string'}, refuted:{type:'boolean'}, refutingEvidence:{type:'string'},
   refutingSource:{type:['string','null']}, recencyOk:{type:'boolean'},
   verdict:{enum:['hold','downgrade','kill']}, newConfidence:{enum:['high','medium','low']} } }
+const REPORT_SCHEMA = { type:'object', required:['tldr','findings','conclusion','references'], properties:{
+  tldr:{type:'array', items:{type:'string'}}, context:{type:'string'},
+  findings:{type:'array', items:{ type:'object', required:['statement','type','confidence','sources'], properties:{
+    statement:{type:'string'}, type:{enum:['evidence','inference','assumption']},
+    confidence:{enum:['high','medium','low']}, sources:{type:'array', items:{type:'string'}}, caveats:{type:'string'} }}},
+  comparisons:{type:'string'}, risksCounterarguments:{type:'array', items:{type:'string'}},
+  appliedRecommendation:{type:'object', properties:{ applies:{type:'boolean'}, recommendation:{type:'string'},
+    rationale:{type:'string'}, groundedContext:{type:'string'} }},
+  evidenceGaps:{type:'array', items:{type:'string'}},
+  coverage:{type:'object'}, conclusion:{type:'object', required:['recommendation','overallConfidence'], properties:{
+    recommendation:{type:'string'}, overallConfidence:{enum:['high','medium','low']} }},
+  references:{type:'array', items:{ type:'object', required:['n','title','url'], properties:{
+    n:{type:'number'}, title:{type:'string'}, url:{type:'string'}, type:{type:'string'}, date:{type:'string'} }}} } }
 
 // The engine may deliver `args` as a JSON string; parse defensively so the
 // command (or a manual invocation) can pass either an object or a string.
@@ -198,5 +211,5 @@ const report = await agent(
   `Synthesize the final research report.\n\nQuestion: ${question}\n\nMatrix:\n${JSON.stringify(matrix)}\n\n` +
   `Verified findings (JSON):\n${JSON.stringify(survivors)}\n\nCoverage:\n${JSON.stringify(coverage)}\n\n` +
   `Produce REPORT_SCHEMA. Tag each finding evidence|inference|assumption. If the question asks to apply findings to a specific design, set appliedRecommendation.applies=true and write a concrete recommendation (leave groundedContext empty — the caller fills local context). Map references [n] to real URLs from the findings' sources.`,
-  { label:'synthesize', phase:'Synthesize' /* REPORT_SCHEMA optional; caller renders */ })
+  { label:'synthesize', phase:'Synthesize', schema: REPORT_SCHEMA })
 return { report, coverage, rounds: round, converged }
