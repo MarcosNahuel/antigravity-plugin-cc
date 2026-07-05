@@ -158,7 +158,7 @@ When this happens, agy exits 0 but the `WRITE_FILE` you instructed it to write *
 
    The 5-minute guard keeps in-flight tmps from a concurrent agy run untouched. This is fire-and-forget — never fail the request because the sweep failed.
 
-2. **Output-file existence check after exit 0, with triage.** For any mode that uses a `WRITE_FILE` (research / ask / review / scrape / doc-to-md / design-review / report-generate), after the agy call exits successfully, verify the `WRITE_FILE` exists and is non-empty. If it does not, tail the most recent `~/.gemini/antigravity-cli/log/cli-*.log` (one extra Bash call) and branch on what the log shows (see the failure-mode table above):
+2. **Output-file existence check after exit 0, with triage.** For any mode that uses a `WRITE_FILE` (research / ask / review / scrape / doc-to-md / design-review / report-generate / deep-angle / redteam), after the agy call exits successfully, verify the `WRITE_FILE` exists and is non-empty. If it does not, tail the most recent `~/.gemini/antigravity-cli/log/cli-*.log` (one extra Bash call) and branch on what the log shows (see the failure-mode table above):
    - **`rename … Access is denied`** → Windows Defender race (#217). The original call lost the race to Defender. **Sleep ~2s, then retry agy ONCE with the same prompt, in the SAME Bash call** so the backoff costs no extra call budget:
      ```bash
      sleep 2 && agy --dangerously-skip-permissions [same flags...] --print "<same prompt>" < /dev/null
@@ -174,7 +174,7 @@ When this happens, agy exits 0 but the `WRITE_FILE` you instructed it to write *
 The slash command passes you a header block followed by the user's text:
 
 ```
-MODE: rescue|research|setup|record|scrape|doc-to-md|design-review|ask|review|report-analyze|report-generate|notebook|notebook-index|notebook-ask|notebook-group|transcribe|media|video|notebook-audit
+MODE: rescue|research|setup|record|scrape|doc-to-md|design-review|ask|review|report-analyze|report-generate|notebook|notebook-index|notebook-ask|notebook-group|transcribe|media|video|notebook-audit|deep-angle|redteam
 INTENSITY: low|medium|high          # only for research
 MODEL:                              # reserved for forward compat — agy 1.0.x ignores model overrides
 RESUME: true|false                  # add --continue if true
@@ -233,6 +233,14 @@ KIND: audio|video|image|url|file
 SOURCE: <file path or URL>
 ADD_DIR: <dir of the source file, or empty for a URL>
 PREGUNTA: <the question>
+# deep-angle mode adds:
+QUERY: <search query for this angle/gap>
+QUESTION: <the overarching research question>
+ROUND: <n>
+WRITE_FILE: <absolute path for the raw artifact, e.g. .../.deep/<slug>/rN-<angle>.md>
+# redteam mode adds:
+CLAIM: <the claim under attack>
+QUESTION: <the overarching research question>
 USER_TEXT:
 <the raw user request goes here>
 ```
@@ -1152,6 +1160,62 @@ Phase 2 of the `/agy:report` flow. Read source markdown + style spec, ask agy to
   3. The `ASSETS_DIR` absolute path (so the caller knows where to drop external images).
   4. Approximate HTML size in KB.
 
+### Mode: deep-angle
+
+One angle/gap of a larger investigation (orchestrated by the `deep-research-agy` workflow). Narrow, deep browsing — not a broad survey. Uses scratch-then-move to write.
+
+- Timeout: `3m0s` (default) — the caller passes the timeout per depth (LOW=3m, HIGH=4-5m). NEVER exceed 8m (the Bash tool's ceiling).
+- Pass `--add-dir` of the absolute dir of `WRITE_FILE`.
+- Prompt template:
+
+  ```
+  You are ONE angle of a larger research investigation. Go narrow and deep.
+
+  Overarching question: <QUESTION>
+  Your angle: <QUERY>
+
+  Rules:
+  - Use web search on the angle. Return 4-8 FALSIFIABLE claims bearing on the overarching question.
+  - Each claim: a concrete checkable statement + a direct supporting quote + the source URL(s) + source quality (primary|secondary|blog|forum|unreliable) + recency (YYYY-MM-DD or "unknown").
+  - Prefer primary sources. Skip SEO spam / content farms.
+  - End with THREADS TO PULL: things you found that look rich and worth deepening. Classify EACH as decision-critical | contradiction-risk | recency-risk | nice-to-have. Do NOT invent threads to pad — if none, say none.
+  - Output language: match the question (default Spanish).
+
+  OUTPUT INSTRUCTION: Do NOT print to chat. Write the full markdown (claims + quotes + sources + THREADS TO PULL) via write_file to:
+    <WRITE_FILE>
+  After writing, confirm the path. That is your only deliverable.
+  ```
+
+- Invoke agy via the scratch-then-move helper (`agy_scratch.py`) so writes don't trigger CWD-sandbox retries; the helper stages, runs agy, and moves the output to `<WRITE_FILE>`.
+- After agy returns, READ `<WRITE_FILE>` and STRUCTURE it into `ANGLE_SCHEMA` (angle, status, rawArtifactPath=WRITE_FILE, findings[], threads[]). If the file is missing/empty after the standard #76 + Windows-rename mitigations, return `{ angle, status:'failed', rawArtifactPath:WRITE_FILE, findings:[], threads:[] }`.
+
+### Mode: redteam
+
+Attacks ONE claim looking for refutation (orchestrated by `deep-research-agy`).
+
+- Timeout: `3m0s`. `--add-dir` of a temp dir (uses the `ask`/scratch pattern).
+- Prompt template:
+
+  ```
+  Adversarial red-team. Be SKEPTICAL — try to REFUTE this claim.
+
+  Research question: <QUESTION>
+  Claim under attack: "<CLAIM>"
+
+  Checklist:
+  1. Web-search for contradicting evidence — does any credible source dispute/heavily qualify it?
+  2. Is the source quality sufficient for the claim's strength? (extraordinary claims need primary sources)
+  3. Is it outdated? (fast-moving fields — old claims are suspect)
+  4. Is it marketing / press-release / cherry-picked benchmark / forum speculation?
+
+  Verdict: kill (unsupported/contradicted/marketing) | downgrade (partly true, weaker than stated) | hold (well-supported, current, source matches strength).
+  Default to downgrade/kill if uncertain.
+
+  OUTPUT INSTRUCTION: Do NOT print to chat. Write a JSON object matching {claim, refuted, refutingEvidence, refutingSource, recencyOk, verdict, newConfidence} via write_file to <WRITE_FILE>. Confirm the path. Only deliverable.
+  ```
+
+- Read `<WRITE_FILE>`, return it as `REDTEAM_SCHEMA`. Missing after mitigations → `{ claim, refuted:false, verdict:'hold', recencyOk:true }` (fail-open: an infra failure should not kill a claim).
+
 ### Mode: setup
 
 Because of issue #76, a "reply pong to stdout" ping is useless here — `agy --print` writes
@@ -1189,7 +1253,7 @@ cat "$OUT" 2>/dev/null
 
 ## Safety rules
 
-- One `Bash` call for the main `agy` invocation per attempt (mode `research`/`ask`/`review`/`scrape`/`doc-to-md`/`design-review`/`report-generate`/`notebook`/`notebook-index`/`notebook-ask`/`notebook-group`/`transcribe`/`media` may retry once if the WRITE_FILE check detects the Windows rename bug — a second `Bash` call to agy is allowed only on retry, not for branching logic).
+- One `Bash` call for the main `agy` invocation per attempt (mode `research`/`ask`/`review`/`scrape`/`doc-to-md`/`design-review`/`report-generate`/`notebook`/`notebook-index`/`notebook-ask`/`notebook-group`/`transcribe`/`media`/`deep-angle`/`redteam` may retry once if the WRITE_FILE check detects the Windows rename bug — a second `Bash` call to agy is allowed only on retry, not for branching logic).
 - The pre-flight `.tmp` sweep adds one Bash call before agy in every mode. The output-file check adds one Bash call after agy (test -s + optional log tail) in modes with WRITE_FILE.
 - **Response recovery is allowed when output is missing/empty** (issue #76): one Bash call to tail the log for triage, and one Bash call to run the transcript Plan B recovery. These are recovery calls, not exploration — only run them when stdout is empty or the WRITE_FILE check failed, never speculatively. `rescue` mode (no WRITE_FILE) may use these same two recovery calls when stdout comes back empty.
 - Mode `record` and `research` may use one additional `Bash` call for post-processing (file moves, ffmpeg) and one `Write` call to prepend frontmatter or append a hint. Mode `setup` may use one additional `Bash` call for the version/log check. Mode `ask` may use one Bash call before agy (mktemp) and one after (rm). Mode `review` may use one Bash call before (size check on DIFF_FILE + mktemp) and one after (rm of both temp dirs). Mode `report-generate` may use one Bash call for output dir setup and one after for image asset moves.
