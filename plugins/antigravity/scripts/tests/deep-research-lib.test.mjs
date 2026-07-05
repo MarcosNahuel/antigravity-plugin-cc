@@ -107,10 +107,61 @@ test('renderReportMarkdown emits frontmatter, honesty tags, coverage, applied re
     conclusion:{ recommendation:'hacé Y', overallConfidence:'medium' },
     references:[{ n:1, title:'T', url:'https://a.com', type:'docs', date:'2026' }],
   }, { title:'Tema', depth:'L', rounds:2, converged:true, date:'2026-07-04' })
+
+  // Frontmatter: basic title + source_tool
   assert.match(md, /^---\ntitle: "Tema"/)
   assert.match(md, /source_tool: agy-deep-research/)
+
+  // Full frontmatter validation: depth, rounds, converged, created, sensitivity
+  assert.match(md, /depth: L/)
+  assert.match(md, /rounds: 2/)
+  assert.match(md, /converged: true/)
+  assert.match(md, /created: 2026-07-04/)
+  assert.match(md, /sensitivity: internal/)
+
+  // Content validation
   assert.match(md, /\[EVIDENCIA · high\]/)
   assert.match(md, /## Recomendación aplicada/)
   assert.match(md, /## Cobertura y confianza/)
   assert.match(md, /dominios distintos: 8/)
+})
+
+test('renderReportMarkdown omits "Recomendación aplicada" when applies:false', () => {
+  const md = renderReportMarkdown({
+    tldr:['punto 1'],
+    findings:[{ statement:'X', type:'evidence', confidence:'high', sources:['https://a.com'], caveats:'' }],
+    appliedRecommendation:{ applies:false, recommendation:'ignorá Y', rationale:'no aplica', groundedContext:'otro contexto' },
+    coverage:{ anglesCompleted:3, anglesFailed:0, sourceCount:12, distinctDomains:8, confidencePenalties:[] },
+    conclusion:{ recommendation:'hacé Z', overallConfidence:'medium' },
+    references:[{ n:1, title:'T', url:'https://a.com', type:'docs', date:'2026' }],
+  }, { title:'Tema', depth:'L', rounds:2, converged:true, date:'2026-07-04' })
+
+  // Negative assertion: "## Recomendación aplicada" must NOT appear
+  assert.doesNotMatch(md, /## Recomendación aplicada/)
+
+  // But all other sections should be present
+  assert.match(md, /^---\ntitle: "Tema"/)
+  assert.match(md, /## Cobertura y confianza/)
+  assert.match(md, /## Conclusión/)
+})
+
+test('renderReportMarkdown omits "Recomendación aplicada" when appliedRecommendation is undefined', () => {
+  const md = renderReportMarkdown({
+    tldr:['punto 1'],
+    findings:[{ statement:'X', type:'evidence', confidence:'high', sources:['https://a.com'], caveats:'' }],
+    // appliedRecommendation is omitted entirely
+    coverage:{ anglesCompleted:3, anglesFailed:0, sourceCount:12, distinctDomains:8, confidencePenalties:[] },
+    conclusion:{ recommendation:'hacé Z', overallConfidence:'medium' },
+    references:[{ n:1, title:'T', url:'https://a.com', type:'docs', date:'2026' }],
+  }, { title:'Tema', depth:'L', rounds:2, converged:true, date:'2026-07-04' })
+
+  // Negative assertion: "## Recomendación aplicada" must NOT appear
+  assert.doesNotMatch(md, /## Recomendación aplicada/)
+
+  // Frontmatter must still be present
+  assert.match(md, /depth: L/)
+  assert.match(md, /rounds: 2/)
+  assert.match(md, /converged: true/)
+  assert.match(md, /created: 2026-07-04/)
+  assert.match(md, /sensitivity: internal/)
 })
