@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { normURL, domainOf, distinctDomains, corroborationOf, ingestRound, isConverged } from '../deep-research-lib.mjs'
+import { normURL, domainOf, distinctDomains, corroborationOf, ingestRound, isConverged, computeCoverage, rankClaimsForRedTeam, applyRedTeam } from '../deep-research-lib.mjs'
 
 test('normURL strips www, scheme, trailing slash, lowercases', () => {
   assert.equal(normURL('https://WWW.Example.com/Path/'), 'example.com/path')
@@ -43,4 +43,40 @@ test('isConverged: needs all recommendation-changing rows answered+independent, 
   assert.equal(isConverged({ coverage:good, matrix, lastRoundChangedMaterially:true, openCriticalThreads:0 }), false)
   // open critical thread → not converged
   assert.equal(isConverged({ coverage:good, matrix, lastRoundChangedMaterially:false, openCriticalThreads:2 }), false)
+})
+
+test('computeCoverage aggregates sources/domains + flags central single-source', () => {
+  const state = { failedAngles:['B'], findings:[
+    { claim:'c1', sources:['https://a.com','https://b.com'], importance:'central', corroboration:'independent' },
+    { claim:'c2', sources:['https://a.com/2'], importance:'central', corroboration:'single-source' },
+  ] }
+  const cov = computeCoverage(state, [{label:'A'},{label:'B'},{label:'C'}])
+  assert.equal(cov.anglesFailed, 1)
+  assert.equal(cov.anglesCompleted, 2)
+  assert.equal(cov.distinctDomains, 2)
+  assert.equal(cov.confidencePenalties.length, 1)
+})
+
+test('rankClaimsForRedTeam picks central or single-source, capped', () => {
+  const findings = [
+    { claim:'c1', importance:'central', corroboration:'independent' },
+    { claim:'c2', importance:'tangential', corroboration:'single-source' },
+    { claim:'c3', importance:'supporting', corroboration:'independent' }, // excluded
+  ]
+  const picked = rankClaimsForRedTeam(findings, 10).map(f => f.claim)
+  assert.deepEqual(picked.sort(), ['c1','c2'])
+})
+
+test('applyRedTeam kills and downgrades', () => {
+  const findings = [
+    { id:'f0', claim:'c1', confidence:'high' },
+    { id:'f1', claim:'c2', confidence:'high' },
+  ]
+  const alive = applyRedTeam(findings, [
+    { claim:'c1', verdict:'kill' },
+    { claim:'c2', verdict:'downgrade', newConfidence:'low' },
+  ])
+  assert.equal(alive.length, 1)
+  assert.equal(alive[0].claim, 'c2')
+  assert.equal(alive[0].confidence, 'low')
 })

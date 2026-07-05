@@ -62,3 +62,46 @@ export function isConverged({ coverage, matrix, lastRoundChangedMaterially, open
   })
   return allAnswered && !lastRoundChangedMaterially && (openCriticalThreads || 0) === 0
 }
+
+export function computeCoverage(state, angles) {
+  const allSources = state.findings.flatMap(f => f.sources || [])
+  const domains = new Set(allSources.map(domainOf))
+  const penalties = []
+  for (const f of state.findings) {
+    if (f.importance === 'central' && f.corroboration === 'single-source') {
+      penalties.push('Claim central de fuente única: "' + String(f.claim).slice(0, 60) + '"')
+    }
+  }
+  return {
+    anglesCompleted: (angles ? angles.length : 0) - state.failedAngles.length,
+    anglesFailed: state.failedAngles.length,
+    failedAngleLabels: [...state.failedAngles],
+    sourceCount: new Set(allSources.map(normURL)).size,
+    distinctDomains: domains.size,
+    unresolvedCriticalGaps: [],
+    confidencePenalties: penalties,
+  }
+}
+
+const _impRank = { central: 0, supporting: 1, tangential: 2 }
+export function rankClaimsForRedTeam(findings, limit) {
+  return [...findings]
+    .filter(f => f.importance === 'central' || f.corroboration === 'single-source')
+    .sort((a, b) =>
+      (_impRank[a.importance] - _impRank[b.importance]) ||
+      ((a.corroboration === 'single-source' ? 0 : 1) - (b.corroboration === 'single-source' ? 0 : 1)))
+    .slice(0, limit)
+}
+
+export function applyRedTeam(findings, verdicts) {
+  const byClaim = new Map()
+  for (const v of verdicts || []) if (v && v.claim) byClaim.set(v.claim, v)
+  for (const f of findings) {
+    const v = byClaim.get(f.claim)
+    if (!v) continue
+    f.redteam = { verdict: v.verdict, refutingSource: v.refutingSource || null, evidence: v.refutingEvidence || '' }
+    if (v.verdict === 'kill') { f.confidence = 'low'; f.killed = true }
+    else if (v.verdict === 'downgrade') { f.confidence = v.newConfidence || 'low' }
+  }
+  return findings.filter(f => !f.killed)
+}
