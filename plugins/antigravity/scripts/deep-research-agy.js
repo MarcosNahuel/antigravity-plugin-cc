@@ -163,8 +163,8 @@ const MAX_ROUNDS = depth === 'H' ? 4 : 2
 const RT_TARGETS = depth === 'H' ? 10 : 5
 const ANGLE_TIMEOUT = depth === 'H' ? '4m0s' : '3m0s'
 
-const anglePrompt = (f, round) =>
-  `MODE: deep-angle\nROUND: ${round}\nWRITE_FILE: ${deepDir}/r${round}-${slug(f.label)}.md\n` +
+const anglePrompt = (f, round, i) =>
+  `MODE: deep-angle\nROUND: ${round}\nWRITE_FILE: ${deepDir}/r${round}-${i}-${slug(f.label)}.md\n` +
   `QUESTION: ${question}\nQUERY: ${f.query}\nTIMEOUT: ${ANGLE_TIMEOUT}\nUSER_TEXT:\n${f.query}`
 const redTeamPrompt = (c, i) =>
   `MODE: redteam\nWRITE_FILE: ${deepDir}/redteam-${i}.md\nQUESTION: ${question}\nCLAIM: ${c.claim}\nUSER_TEXT:\n${c.claim}`
@@ -178,8 +178,8 @@ while (round < MAX_ROUNDS && !converged) {
   round++
   const ph = round === 1 ? 'Round 1' : 'Round 2+'
   attemptedAngles.push(...focus)
-  const results = (await parallel(focus.map(f => () =>
-    agent(anglePrompt(f, round), { label:`r${round}:${f.label}`, phase:ph, schema:ANGLE_SCHEMA, agentType:'antigravity:agy-rescue' })
+  const results = (await parallel(focus.map((f, i) => () =>
+    agent(anglePrompt(f, round, i), { label:`r${round}:${f.label}`, phase:ph, schema:ANGLE_SCHEMA, agentType:'antigravity:agy-rescue' })
   ))).filter(Boolean)
   const novel = ingestRound(results, state, round)
   log(`R${round}: +${novel} findings (${state.findings.length} total, ${state.failedAngles.length} failed angles)`)

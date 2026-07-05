@@ -145,6 +145,28 @@ test('renderReportMarkdown omits "Recomendación aplicada" when applies:false', 
   assert.match(md, /## Conclusión/)
 })
 
+test('renderReportMarkdown reference line has no leading comma when type is empty', () => {
+  const md = renderReportMarkdown({
+    tldr:['punto 1'],
+    findings:[{ statement:'X', type:'evidence', confidence:'high', sources:['https://a.com'], caveats:'' }],
+    coverage:{ anglesCompleted:3, anglesFailed:0, sourceCount:12, distinctDomains:8, confidencePenalties:[] },
+    conclusion:{ recommendation:'hacé Y', overallConfidence:'medium' },
+    references:[
+      { n:1, title:'Sin tipo', url:'https://a.com', date:'2026' }, // type absent, date present
+      { n:2, title:'Sin nada', url:'https://b.com' }, // neither type nor date
+      { n:3, title:'Con tipo', url:'https://c.com', type:'docs' }, // type only
+      { n:4, title:'Con ambos', url:'https://d.com', type:'docs', date:'2026' }, // both
+    ],
+  }, { title:'Tema', depth:'L', rounds:2, converged:true, date:'2026-07-04' })
+
+  // The bug rendered "— , 2026" (leading comma) when type was empty/absent but date was set.
+  assert.doesNotMatch(md, /— , /)
+  assert.match(md, /1\. \[Sin tipo\]\(https:\/\/a\.com\) — 2026/)
+  assert.match(md, /2\. \[Sin nada\]\(https:\/\/b\.com\) — \n/)
+  assert.match(md, /3\. \[Con tipo\]\(https:\/\/c\.com\) — docs/)
+  assert.match(md, /4\. \[Con ambos\]\(https:\/\/d\.com\) — docs, 2026/)
+})
+
 test('renderReportMarkdown omits "Recomendación aplicada" when appliedRecommendation is undefined', () => {
   const md = renderReportMarkdown({
     tldr:['punto 1'],

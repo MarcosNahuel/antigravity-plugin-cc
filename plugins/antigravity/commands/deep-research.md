@@ -2,7 +2,7 @@
 description: Deep research multi-agent research with agy (agy browses in parallel per angle, Claude reasons the evidence matrix and convergence) — adaptive rounds (L<=2 / H<=4), plan gate, red-team pass, and a grounded applied recommendation. Complements /agy:research (fast single-shot).
 argument-hint: "[--depth L|H] [--background] [--yes] [--engines agy|mixed] <topic>"
 context: fork
-allowed-tools: Bash, Write, Read, Workflow, mcp__plugin_engram_engram__mem_search
+allowed-tools: Bash, Write, Read, Workflow
 ---
 
 Deep research command. Does **not** replace `/agy:research` (that one is a fast single-shot lookup) —
@@ -91,11 +91,13 @@ an object here). `deepDir` and `title` must be final, absolute/resolved values �
 ## Step 5 — Grounding + render (Claude, after the Workflow returns)
 
 - **Grounding** (only when the topic asks to apply the findings to a known local design — e.g.
-  capataz/brain, or this repo's own architecture): `mem_search` for relevant prior decisions, then
-  `Read` the relevant spec/repo files. Fill `report.appliedRecommendation.groundedContext` with what
-  you find — this is the one field the workflow deliberately leaves empty, since it has no access to
-  local memory or files. If the topic is general research with nothing local to ground against, skip
-  this substep and leave `groundedContext` exactly as the workflow returned it.
+  capataz/brain, or this repo's own architecture): si el tema pide aplicar los hallazgos a un
+  diseño/proyecto local conocido Y tenés herramientas de memoria o búsqueda local disponibles (p.ej.
+  engram, grep del repo), usalas para traer contexto y completar `appliedRecommendation.groundedContext`
+  — este es el único campo que el workflow deja deliberadamente vacío, ya que no tiene acceso a memoria
+  o archivos locales. Si no hay ninguna herramienta de ese tipo disponible, o el tema es investigación
+  general sin nada local contra qué anclar, saltá este sub-paso y dejá `groundedContext` tal como lo
+  devolvió el workflow (vacío).
 - **Render** — do not hand-roll the markdown format. Call `renderReportMarkdown(report, meta)` from
   `deep-research-lib.mjs`, the single source of truth (also what the workflow's own tests check
   against). Write `{ report, meta }` to `<DEEP_DIR>/_render.json`, then run it through the
