@@ -172,10 +172,12 @@ function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').repl
 
 const state = { findings: [], seenKeys: new Set(), failedAngles: [] }
 let focus = angles, converged = false, round = 0, lastAnalysis = null
+const attemptedAngles = []
 
 while (round < MAX_ROUNDS && !converged) {
   round++
   const ph = round === 1 ? 'Round 1' : 'Round 2+'
+  attemptedAngles.push(...focus)
   const results = (await parallel(focus.map(f => () =>
     agent(anglePrompt(f, round), { label:`r${round}:${f.label}`, phase:ph, schema:ANGLE_SCHEMA, agentType:'antigravity:agy-rescue' })
   ))).filter(Boolean)
@@ -188,6 +190,7 @@ while (round < MAX_ROUNDS && !converged) {
     `List pre-conclusions with confidence. List ranked gaps (recommendationChanging flag). If NOT converged, propose nextFocus (label+query) targeting the top recommendation-changing gaps and any decision-critical/contradiction/recency threads. ` +
     `Set converged=true only if every recommendation-changing row is answered+independent, this round changed nothing material, and no critical threads remain. Report lastRoundChangedMaterially and openCriticalThreads.`,
     { label:`global:r${round}`, phase:ph, schema:GLOBAL_SCHEMA })
+  if (!analysis) { log('deep-research: global analysis returned null — ending round loop with accumulated findings'); break }
   lastAnalysis = analysis
   converged = analysis.converged === true || isConverged({ coverage:analysis.coverage, matrix, lastRoundChangedMaterially:analysis.lastRoundChangedMaterially, openCriticalThreads:analysis.openCriticalThreads })
   focus = (analysis.nextFocus || [])
@@ -205,11 +208,20 @@ const survivors = applyRedTeam(state.findings, verdicts)
 
 // Synthesis (Claude)
 phase('Synthesize')
-const coverage = computeCoverage({ findings:survivors, failedAngles:state.failedAngles }, angles)
+const coverage = computeCoverage({ findings:survivors, failedAngles:state.failedAngles }, attemptedAngles)
 if (lastAnalysis && lastAnalysis.gaps) coverage.unresolvedCriticalGaps = lastAnalysis.gaps.filter(g => g.recommendationChanging).map(g => g.question)
-const report = await agent(
+let report = await agent(
   `Synthesize the final research report.\n\nQuestion: ${question}\n\nMatrix:\n${JSON.stringify(matrix)}\n\n` +
   `Verified findings (JSON):\n${JSON.stringify(survivors)}\n\nCoverage:\n${JSON.stringify(coverage)}\n\n` +
   `Produce REPORT_SCHEMA. Tag each finding evidence|inference|assumption. If the question asks to apply findings to a specific design, set appliedRecommendation.applies=true and write a concrete recommendation (leave groundedContext empty — the caller fills local context). Map references [n] to real URLs from the findings' sources.`,
   { label:'synthesize', phase:'Synthesize', schema: REPORT_SCHEMA })
+if (!report) {
+  report = {
+    tldr: [], context: '',
+    findings: survivors.map(f => ({ statement: f.claim, type: 'evidence', confidence: f.confidence, sources: f.sources, caveats: f.evidence || '' })),
+    risksCounterarguments: [], appliedRecommendation: { applies: false, recommendation: '', groundedContext: '' },
+    evidenceGaps: [], conclusion: { recommendation: '(La síntesis falló; informe degradado desde los findings verificados.)', overallConfidence: 'low' }, references: [],
+  }
+}
+report.coverage = coverage
 return { report, coverage, rounds: round, converged }
