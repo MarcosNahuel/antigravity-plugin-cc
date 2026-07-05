@@ -1,5 +1,5 @@
 ---
-description: Deep research multi-agent research with agy (agy browses in parallel per angle, Claude reasons the evidence matrix and convergence) — adaptive rounds (L<=2 / H<=4), plan gate, red-team pass, and a grounded applied recommendation. Complements /agy:research (fast single-shot).
+description: Deep, multi-source, fact-checked web research with agy — reach for it when a decision or design depends on getting it right and a single-shot answer is not enough (architecture / tool / vendor choices, thorough landscape scans, anything you will act on). Builds an evidence matrix + a plan you approve, then agy browses each angle in parallel while Claude reasons convergence across adaptive rounds (--depth L<=2 / H<=4), runs an agy red-team pass, and returns a cited report with evidence/inference/assumption tags + an applied recommendation. Heavier and slower than /agy:research (single-shot) — use it when depth and correctness matter more than speed.
 argument-hint: "[--depth L|H] [--background] [--yes] [--engines agy|mixed] <topic>"
 context: fork
 allowed-tools: Bash, Write, Read, Workflow
