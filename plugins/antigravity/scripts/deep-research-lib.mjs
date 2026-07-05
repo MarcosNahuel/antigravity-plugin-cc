@@ -115,3 +115,49 @@ export function applyRedTeam(findings, verdicts) {
   }
   return result
 }
+
+export function renderReportMarkdown(report, meta) {
+  const L = []
+  L.push([
+    '---', `title: "${meta.title}"`, 'type: research', 'source_tool: agy-deep-research',
+    `depth: ${meta.depth}`, `rounds: ${meta.rounds}`, `converged: ${meta.converged}`,
+    `created: ${meta.date}`, 'sensitivity: internal', '---', '',
+  ].join('\n'))
+  L.push(`# ${meta.title}\n`)
+  if (report.tldr && report.tldr.length) { L.push('## TL;DR'); for (const b of report.tldr) L.push(`- ${b}`); L.push('') }
+  if (report.context) { L.push('## Contexto'); L.push(report.context + '\n') }
+  if (report.findings && report.findings.length) {
+    L.push('## Findings')
+    const TAG = { evidence:'EVIDENCIA', inference:'INFERENCIA', assumption:'SUPUESTO' }
+    for (const f of report.findings) {
+      const refs = (f.sources || []).map(s => `[${s}](${s})`).join(', ')
+      L.push(`- **[${TAG[f.type] || f.type} · ${f.confidence}]** ${f.statement}${f.caveats ? ` _(${f.caveats})_` : ''}${refs ? ` — ${refs}` : ''}`)
+    }
+    L.push('')
+  }
+  if (report.comparisons) { L.push('## Comparaciones'); L.push(report.comparisons + '\n') }
+  if (report.risksCounterarguments && report.risksCounterarguments.length) {
+    L.push('## Riesgos y contraargumentos'); for (const r of report.risksCounterarguments) L.push(`- ${r}`); L.push('')
+  }
+  const a = report.appliedRecommendation
+  if (a && a.applies) {
+    L.push('## Recomendación aplicada'); L.push(a.recommendation + '\n')
+    if (a.rationale) L.push(`**Por qué:** ${a.rationale}\n`)
+    if (a.groundedContext) L.push(`**Contexto local:** ${a.groundedContext}\n`)
+  }
+  if (report.evidenceGaps && report.evidenceGaps.length) {
+    L.push('## Evidence gaps'); for (const g of report.evidenceGaps) L.push(`- ${g}`); L.push('')
+  }
+  const c = report.coverage || {}
+  L.push('## Cobertura y confianza')
+  L.push(`- Ángulos completados: ${c.anglesCompleted ?? '?'} · caídos: ${c.anglesFailed ?? 0}${(c.failedAngleLabels && c.failedAngleLabels.length) ? ` (${c.failedAngleLabels.join(', ')})` : ''}`)
+  L.push(`- Fuentes: ${c.sourceCount ?? '?'} · dominios distintos: ${c.distinctDomains ?? '?'}`)
+  if (c.unresolvedCriticalGaps && c.unresolvedCriticalGaps.length) { L.push('- Gaps críticos sin resolver:'); for (const g of c.unresolvedCriticalGaps) L.push(`  - ${g}`) }
+  if (c.confidencePenalties && c.confidencePenalties.length) { L.push('- Penalizaciones de confianza:'); for (const p of c.confidencePenalties) L.push(`  - ${p}`) }
+  L.push('')
+  if (report.conclusion) { L.push('## Conclusión'); L.push(`${report.conclusion.recommendation}\n`); L.push(`**Confianza global:** ${report.conclusion.overallConfidence}\n`) }
+  if (report.references && report.references.length) {
+    L.push('## Referencias'); for (const r of report.references) L.push(`${r.n}. [${r.title}](${r.url}) — ${r.type || ''}${r.date ? ', ' + r.date : ''}`); L.push('')
+  }
+  return L.join('\n')
+}

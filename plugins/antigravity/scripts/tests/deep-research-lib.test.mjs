@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { normURL, domainOf, distinctDomains, corroborationOf, ingestRound, isConverged, computeCoverage, rankClaimsForRedTeam, applyRedTeam } from '../deep-research-lib.mjs'
+import { normURL, domainOf, distinctDomains, corroborationOf, ingestRound, isConverged, computeCoverage, rankClaimsForRedTeam, applyRedTeam, renderReportMarkdown } from '../deep-research-lib.mjs'
 
 test('normURL strips www, scheme, trailing slash, lowercases', () => {
   assert.equal(normURL('https://WWW.Example.com/Path/'), 'example.com/path')
@@ -96,4 +96,21 @@ test('applyRedTeam kills and downgrades (pure: no input mutation)', () => {
   assert.equal(findings[1].redteam, origF1Redteam, 'f1 redteam should not be mutated')
   assert.equal(findings[0].killed, undefined, 'f0 should not have killed property')
   assert.equal(findings[1].killed, undefined, 'f1 should not have killed property')
+})
+
+test('renderReportMarkdown emits frontmatter, honesty tags, coverage, applied rec', () => {
+  const md = renderReportMarkdown({
+    tldr:['punto 1'],
+    findings:[{ statement:'X', type:'evidence', confidence:'high', sources:['https://a.com'], caveats:'' }],
+    appliedRecommendation:{ applies:true, recommendation:'usá Y', rationale:'porque', groundedContext:'capataz' },
+    coverage:{ anglesCompleted:3, anglesFailed:0, sourceCount:12, distinctDomains:8, confidencePenalties:[] },
+    conclusion:{ recommendation:'hacé Y', overallConfidence:'medium' },
+    references:[{ n:1, title:'T', url:'https://a.com', type:'docs', date:'2026' }],
+  }, { title:'Tema', depth:'L', rounds:2, converged:true, date:'2026-07-04' })
+  assert.match(md, /^---\ntitle: "Tema"/)
+  assert.match(md, /source_tool: agy-deep-research/)
+  assert.match(md, /\[EVIDENCIA · high\]/)
+  assert.match(md, /## Recomendación aplicada/)
+  assert.match(md, /## Cobertura y confianza/)
+  assert.match(md, /dominios distintos: 8/)
 })
