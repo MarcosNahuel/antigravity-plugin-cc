@@ -157,7 +157,7 @@ export function renderReportMarkdown(report, meta) {
   L.push('')
   if (report.conclusion) { L.push('## Conclusión'); L.push(`${report.conclusion.recommendation}\n`); L.push(`**Confianza global:** ${report.conclusion.overallConfidence}\n`) }
   if (report.references && report.references.length) {
-    L.push('## Referencias'); for (const r of report.references) L.push(`${r.n}. [${r.title}](${r.url}) — ${r.type || ''}${r.date ? ', ' + r.date : ''}`); L.push('')
+    L.push('## Referencias'); for (const r of report.references) L.push(`${r.n}. [${r.title}](${r.url}) — ${[r.type, r.date].filter(Boolean).join(', ')}`); L.push('')
   }
   return L.join('\n')
 }
