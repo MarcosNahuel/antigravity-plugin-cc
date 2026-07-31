@@ -1,75 +1,78 @@
-# Graphify × agy — build knowledge graphs with Gemini, off Claude's tokens
+# Graphify × agy — knowledge graphs for free, community names by Gemini
 
 [Graphify](https://github.com/safishamsi/graphify) (MIT) turns a folder of code + docs into a
-queryable **knowledge graph** (Tree-sitter ASTs + NetworkX + Leiden communities + an interactive
-`graph.html`). Out of the box its `claude-cli` backend builds the graph using **Claude Code's own
-tokens**; its `gemini` backend needs a `GEMINI_API_KEY`.
+queryable **knowledge graph** (tree-sitter ASTs + NetworkX + Leiden communities + an interactive
+`graph.html`). This plugin drives it from `/agy:graph`.
 
-This integration adds an **`agy-cli` backend** so Graphify builds the graph through the **Google
-Antigravity CLI (`agy`)** — i.e. **Gemini generates the graph**, billed to your Antigravity/Google
-sign-in (no API key), and **off the host assistant's (Claude's) token budget**. Then Claude reads the
-small `graph.json` / `GRAPH_REPORT.md` when it reasons — cheap.
+## How it works now (plugin v1.6.0+)
 
-> The division of labour: **Gemini (via agy) builds the graph; Claude reads it.** Pairs with this
-> plugin's `/agy:notebook` (multimodal document RAG + exact SQL) — Graphify for the graph, notebook
-> for structured facts.
-
-## What the patch does (`agy-cli-backend.patch`)
-
-Adds, to graphify's `llm.py` + `__main__.py`, a new `agy-cli` backend that mirrors the existing
-`claude-cli` one:
-- subprocesses `agy --print` from a **neutral temp CWD** (avoids agy's project artifact-sandbox bug),
-- writes the (possibly huge) prompt to a file agy reads (agy takes the prompt as an argv, which blows
-  the OS command-line limit on big chunks), and has agy **write its JSON answer to a file** (agy's
-  `--print` writes nothing to stdout outside a TTY — upstream issue #76),
-- runs **serial by default** (`GRAPHIFY_AGY_CLI_PARALLEL=1` to opt in) to respect agy's rate limit,
-- exempts `agy-cli` from the API-key preflight (auth is the user's agy sign-in, like `claude-cli`).
-
-## Install
+**Graphify 0.9 extracts code structurally — no LLM, no API key, no tokens.** So the graph itself is
+free on every assistant, and there is nothing to route through a model:
 
 ```bash
-git clone https://github.com/safishamsi/graphify
-cd graphify
-git apply /path/to/integrations/graphify-agy/agy-cli-backend.patch
-pip install -e .          # or: uv pip install -e .
-# agy must be installed + signed in (https://antigravity.google); set AGY_BIN if not on PATH
+graphify extract <folder> --code-only   # tree-sitter AST, local, ~seconds
+graphify cluster-only <folder>          # GRAPH_REPORT.md + graph.json + graph.html
 ```
 
-## Use
+The one step that genuinely wants a language model is **naming the communities** — otherwise the
+report reads "Community 0 / Community 1 / …". Upstream fills that from an API-key backend, or by
+letting the *host agent* do it, which on Claude Code would spend Claude's tokens. This plugin hands
+it to **Gemini via `agy`** instead:
 
 ```bash
-graphify extract ./my-folder --backend agy-cli       # Gemini-via-agy builds the graph
-graphify cluster-only ./my-folder --backend agy-cli  # name communities + GRAPH_REPORT.md + graph.html
+python plugins/antigravity/scripts/graphify_label_agy.py <folder>
 ```
 
-Output (in `./my-folder/graphify-out/`): `graph.json` (node-link), `GRAPH_REPORT.md` (communities,
-god-nodes, surprising links), `graph.html` (interactive viz). Claude reads those to reason.
+One `agy --print` call per 100 communities, writing `graphify-out/.graphify_labels.json`, which
+`graphify cluster-only` picks up on its next run. Division of labour: **Graphify builds the graph,
+Gemini names it, Claude reads it.**
 
-Env knobs: `AGY_BIN` (path to agy), `GRAPHIFY_AGY_CLI_PARALLEL=1` (allow concurrent agy calls — only
-on a high-RPM plan).
+Documents (PDF, papers, images) still need a model to extract entities from prose. Two supported
+routes, both off Claude: set `GEMINI_API_KEY` and run `graphify extract --backend gemini`, or use
+upstream's native `graphify install --platform antigravity` and drive the workflow from inside agy.
 
-## Validation (real run, 2026-06-22)
+## What changed, and why the old patch is gone
 
-Ran on a 4-document test "expediente" (markdown notes with people/orgs/amounts/dates/contract refs):
+Plugin ≤ v1.5.1 shipped an `agy-cli-backend.patch`: it cloned Graphify, patched `llm.py` +
+`__main__.py` to add an `agy-cli` LLM backend, and `pip install -e`'d the result. That earned its keep
+in June 2026, when Graphify needed a model for *everything* and offered no Antigravity path.
 
-| | |
+Then upstream shipped the **v8 rewrite**: the default branch moved from `main` to `v8`, the files the
+patch targeted moved with it, and — crucially — **code extraction stopped needing an LLM at all**.
+Every *fresh* install after that cloned v8, failed `git apply`, and left `/agy:graph` dead. Existing
+machines kept working only because their June clone was already on disk.
+
+The lesson is worth keeping: **do not patch a third-party project's internals to add an integration
+point.** A context diff against a fast-moving repo (Graphify ships multiple releases a day) is a
+time-bomb, and the failure lands on users, not on the maintainer. The replacement depends only on the
+official PyPI package plus a documented sidecar file.
+
+## Windows gotcha — MAX_PATH (verified 2026-07-31)
+
+Graphify caches each AST extraction at
+`<out>/graphify-out/cache/ast/v<version>/<64-char-sha256>.<8-char>.tmp`, ~110 characters on top of the
+project path. Cross Windows' 260-char ceiling and the write fails with ENOENT, Graphify prints
+"AST extraction failed" then "graph is empty" — and **exits 0**. A silent empty graph, not an error.
+
+Measured on Windows 11 + Python 3.13 + graphify 0.9.31:
+
+| project path length | result |
 |---|---|
-| `graphify extract … --backend agy-cli` | **18 nodes · 24 edges · 3 communities** |
-| Token cost on Claude | **$0 / 0 tokens** (built entirely by Gemini via agy) |
-| Entities captured | Acme Corp, Jane Smith, Globex SA, Proyecto Phoenix, Carlos Ruiz, Contrato CT-2026-008 ✓ |
-| Relations | Acme→Jane, Jane→Globex, Carlos→CT-2026-008, cross-doc entity links ✓ |
-| `cluster-only` | named communities ("Proyecto Phoenix Collaboration", "Globex SA Personnel", …) + `GRAPH_REPORT.md` + `graph.html` ✓ |
+| 259 chars | 57 nodes, 81 edges |
+| 260 chars | 0 nodes, exit 0 |
 
-See `VALIDATION_GRAPH_REPORT.md` for the actual report agy/Gemini produced.
+`scripts/graphify_outdir.py` guards against it by relocating output for deep projects via the
+`GRAPHIFY_OUT` env var upstream already honours.
 
-## Notes & limits
+## Validation (real run, 2026-07-31)
 
-- **Rate limit**: graphify makes one LLM call per chunk; on agy's free ~10 RPM a big repo is slow
-  (serial). On a Pro/Ultra plan it's fine. For very large code corpora, `--backend gemini` (API key)
-  parallelises better.
-- **agy model** is set via `~/.gemini/antigravity-cli/settings.json` (not a flag); use a fast Flash
-  model for the sweep. (`GRAPHIFY_AGY_MODEL` is reserved for a future settings.json switch.)
-- This is a **clean, upstreamable patch** (graphify already has a `claude-cli` CLI backend) — it could
-  be sent as a PR to graphify so no fork is needed long-term.
-- Amounts/dates as exact rows are better served by this plugin's `/agy:notebook-query` (integer-cent
-  SQL); Graphify focuses on the entity/relation graph. Use both.
+`/agy:graph` on a 2-file Python corpus, end to end on Windows:
+
+| step | result |
+|---|---|
+| `graphify extract --code-only` | **21 nodes · 33 edges · 5 communities**, zero tokens, zero API keys |
+| `graphify_label_agy.py` | `LABELED 5` — one agy call, zero Claude tokens |
+| names produced by Gemini | "Notebook DB utilities and formatters", "AGY stack check and graphify integration", "Tolerant JSON parsing", … |
+| `graphify cluster-only` | GRAPH_REPORT.md renders the Gemini names; `graph.html` + `graph.json` written |
+
+`VALIDATION_GRAPH_REPORT.md` keeps the earlier (June 2026) document-corpus report from the patch era.

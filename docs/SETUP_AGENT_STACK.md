@@ -41,21 +41,23 @@ stop and tell me exactly what to do.
 - **ffmpeg** (`ffmpeg -version`) — OPTIONAL, only to split long audio/video for `/agy:transcribe`.
 - (Real semantic embeddings also need a real `GEMINI_API_KEY`; without one, the fallback is keyword-ish.)
 
-## 4. Graphify + the agy-cli backend (knowledge graphs via Gemini, off Claude's tokens)
-- Run the plugin's installer (idempotent — clones Graphify, applies the bundled `agy-cli` backend
-  patch, `pip install -e`s it):
-  `python "<plugin>/plugins/antigravity/scripts/graphify_agy_install.py"`
+## 4. Graphify (knowledge graphs — built locally for free, named by Gemini)
+- Run the plugin's installer (idempotent — installs `graphifyy` from PyPI, and migrates the old
+  patched clone if this machine still has one):
+  `python "<plugin>/plugins/antigravity/scripts/graphify_install.py"`
   (resolve `<plugin>` to where the plugin is installed; on a fresh marketplace install it's under
   `~/.claude/plugins/.../antigravity/`. If you can't find it, clone the repo
   `https://github.com/MarcosNahuel/antigravity-plugin-cc` and use that path.)
-- It needs `git` + `pip` and prints `READY` when done. `--check` reports status without installing.
+- It needs `pip` and prints `READY` when done (`READY_NO_AGY` = graphs work, community naming is off).
+  `--check` reports status without installing.
 
 ## 5. End-to-end verification (do a real smoke test of each capability)
 - **Notebook RAG**: make a tiny temp folder with 2 short `.txt`/`.pdf` docs, run
   `/agy:notebook <folder> | objetivo de prueba`, then `/agy:notebook-query <folder> | SELECT * FROM v_montos`.
   Confirm `notebook.db` was built and the query returns rows (or an empty result without error).
 - **Graph**: run `/agy:graph <same folder>` and confirm `graphify-out/graph.json` + `GRAPH_REPORT.md`
-  appear and that the run printed `est. cost (~agy-cli): $0.0000` (built by Gemini, zero Claude tokens).
+  appear with a **non-zero** node count (a run that says "graph is empty" still exits 0 — that is a
+  failure, not a result) and that the communities carry real names rather than "Community 0/1/2".
 - **Media** (optional, if I give you a file): `/agy:transcribe <audio-or-youtube-url>`.
 
 ## 6. Report

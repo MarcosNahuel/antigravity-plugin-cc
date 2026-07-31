@@ -5,7 +5,7 @@ WHY (validated 2026-06-26): agy snapshots every untracked file of any repo passe
 on EVERY call (slow startup), and sandboxes write_file to project paths (rejection→replan round-trips).
 Staging the read inputs + the writes in a neutral scratch dir gives **0 snapshots + 0 rejections**
 with **byte-identical model output** — measured 15s/20snap/2rej → 9s/0/0, same extracted facts.
-This generalizes the pattern the graphify agy-cli backend already runs in production. ZERO quality
+This generalizes the pattern the graphify integration ran in production (v1.5.1 and earlier). ZERO quality
 cost: agy gets the identical prompt + identical input bytes and produces the identical output; only
 the file's final location changes, and the move happens AFTER agy exits.
 

@@ -12,8 +12,8 @@ type: software
 license: MIT
 repository-code: "https://github.com/MarcosNahuel/antigravity-plugin-cc"
 url: "https://github.com/MarcosNahuel/antigravity-plugin-cc"
-version: "0.7.0"
-date-released: "2026-06-19"
+version: "1.6.0"
+date-released: "2026-07-31"
 keywords:
   - claude-code
   - claude-code-plugin

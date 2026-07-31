@@ -15,7 +15,7 @@ python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/stack_check.py"
 
 It checks: **agy CLI** (required), **PyMuPDF/fitz** (required for `/agy:notebook` PDFs), **sqlite-vec**
 (optional — `/agy:notebook --semantic`), **ffmpeg** (optional — long media for `/agy:transcribe`), and
-**graphify + agy-cli backend** (optional — `/agy:graph`). Present the table and the fix line for
+**graphify** (optional — `/agy:graph`). Present the table and the fix line for
 anything missing. Prints `STACK n/5 present`.
 
 ## Phase 1 — agy health ping
