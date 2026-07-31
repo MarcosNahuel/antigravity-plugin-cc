@@ -26,13 +26,29 @@ def has_module(name):
         return False
 
 
-def graphify_agy_ready():
-    """graphify importable AND aware of the agy-cli backend."""
+GRAPHIFY_MIN = (0, 9, 31)       # keep in sync with graphify_install.py
+
+
+def graphify_ready():
+    """graphify installed at a version whose AST extraction needs no LLM and no API key.
+
+    Was `agy-cli backend present?` until v1.6.0 — that backend came from a source patch this plugin
+    applied to a clone of upstream, which upstream's v8 rewrite invalidated. Now we simply track the
+    official PyPI package."""
     if not has_module("graphify"):
         return False
     try:
-        import graphify.llm as L  # noqa
-        return "agy-cli" in L.BACKENDS
+        from importlib.metadata import version
+        parts = []
+        for seg in version("graphifyy").split("."):
+            digits = ""
+            for ch in seg:
+                if ch.isdigit():
+                    digits += ch
+                else:
+                    break
+            parts.append(int(digits) if digits else 0)
+        return tuple(parts[:3]) >= GRAPHIFY_MIN
     except Exception:
         return False
 
@@ -58,10 +74,10 @@ def main():
                  "split long audio/video for /agy:transcribe",
                  "install ffmpeg (https://ffmpeg.org) and put it on PATH"))
 
-    gready = graphify_agy_ready()
-    rows.append(("graphify + agy-cli", gready, "optional (for /agy:graph)",
-                 "knowledge graphs built by Gemini via agy (off Claude's tokens)",
-                 "run scripts/graphify_agy_install.py (clones graphify + applies the agy-cli backend)"))
+    gready = graphify_ready()
+    rows.append(("graphify", gready, "optional (for /agy:graph)",
+                 "knowledge graphs: code graph built locally (0 tokens), communities named by agy",
+                 "run scripts/graphify_install.py (installs graphifyy from PyPI)"))
 
     # render
     width = max(len(r[0]) for r in rows)

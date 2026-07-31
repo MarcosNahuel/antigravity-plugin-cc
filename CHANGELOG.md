@@ -4,6 +4,47 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-07-31
+
+### Fixed
+
+- **`/agy:graph` was broken on every fresh install.** The installer cloned Graphify's default branch
+  and applied a bundled `agy-cli-backend.patch`; upstream then shipped its **v8 rewrite** (default
+  branch `main` → `v8`, `llm.py`/`__main__.py` restructured), so `git apply` failed on any machine
+  that cloned after the rewrite and the command was dead on arrival. Machines that had cloned earlier
+  kept working, which is why it looked machine-specific. The patch is **removed**, not re-derived: as
+  of Graphify 0.9 code is extracted with tree-sitter **without an LLM or an API key**, so there is
+  nothing left to route through a model.
+- **Windows `MAX_PATH` silent empty graph.** Graphify's AST cache path
+  (`graphify-out/cache/ast/v<ver>/<64-char-sha256>.<8-char>.tmp`) adds ~110 characters to the project
+  path; past Windows' 260-char ceiling the write fails with ENOENT and Graphify prints
+  "AST extraction failed" + "graph is empty" while **exiting 0**. Verified on Windows 11 + Python
+  3.13 + graphify 0.9.31: a 259-char project path yields 57 nodes, a 260-char one yields 0.
+  `scripts/graphify_outdir.py` now relocates output for deep projects via `GRAPHIFY_OUT`, and
+  `/agy:graph` treats an empty graph as a failure instead of reporting it as a result.
+
+### Changed
+
+- **`/agy:graph` no longer spends anyone's tokens on the graph itself.** `scripts/graphify_install.py`
+  (replaces `graphify_agy_install.py`) installs the official `graphifyy` package from PyPI — no clone,
+  no source patch, nothing to drift — and **migrates** a machine still carrying the old patched
+  editable install. It reports how to invoke the CLI (`GRAPHIFY_CMD=`), covering installs whose
+  Scripts/bin dir is not on `PATH`.
+- `/agy:setup` and `stack_check.py` now report **graphify** by installed version instead of probing
+  for the patched `agy-cli` backend.
+
+### Added
+
+- `scripts/graphify_label_agy.py` — names a run's communities with **Gemini via agy** (one `agy`
+  call per 100 communities), writing `graphify-out/.graphify_labels.json` for `graphify cluster-only`
+  to consume. Keeps the plugin's promise where a model is actually needed, at one call instead of N,
+  and depends only on a sidecar file rather than on Graphify's internals. Partial results are
+  rejected on purpose — upstream discards a label map that doesn't cover every community.
+- `/agy:graph` now surfaces the document path explicitly: `--code-only` skips PDFs/papers/images, so
+  when any are detected the command says they are not in the graph and offers the two routes that
+  keep the work off Claude (`GEMINI_API_KEY` + `--backend gemini`, or upstream's native
+  `graphify install --platform antigravity`).
+
 ## [1.5.1] - 2026-07-05
 
 ### Changed

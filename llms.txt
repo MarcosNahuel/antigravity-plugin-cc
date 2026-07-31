@@ -24,7 +24,7 @@ Source: https://developers.googleblog.com/an-important-update-transitioning-gemi
 Document intelligence (the local NotebookLM):
 - `/agy:notebook <folder> | <objective>` — sweep a folder of documents (PDFs, scanned PDFs, images, docx) into one objective-driven summary per document + a relevance `INDEX.md` + a cited `RESUMEN_MAESTRO.md` + `TIMELINE.md` + `ENTIDADES.md`. Output in `docs/agy/notebook/`. Hybrid text/vision OCR; large scans auto-chunked; incremental cache keyed by the objective.
 - `/agy:notebook-ask <folder> | <question>` — Q&A over the notebook corpus (from the per-doc summaries), answers with source citations.
-- `/agy:graph <folder>` — build a knowledge GRAPH (Graphify + the bundled agy-cli backend): Gemini via agy builds tree-sitter/NetworkX/Leiden graph + graph.html, OFF Claude's tokens; Claude reads graph.json to reason. First run auto-installs graphify.
+- `/agy:graph <folder>` — build a knowledge GRAPH (Graphify): tree-sitter/NetworkX/Leiden graph + graph.html extracted LOCALLY with no LLM and no API key (zero tokens), communities named by Gemini via agy in one call; Claude reads graph.json to reason. First run auto-installs graphify from PyPI.
 
 Audio / video / multimodal (things Claude Code can't do natively):
 - `/agy:transcribe <audio|video file | YouTube/URL> [focus]` — faithful transcript + summary; timestamps for video/URLs. Output in `docs/agy/transcripts/`.

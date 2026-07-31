@@ -107,7 +107,7 @@ For grounded *prose* instead of structured rows, use `/agy:notebook-ask`.
 
 > 📊 **How the local RAG works (visual):** [`docs/semantic-rag-explainer.html`](docs/semantic-rag-explainer.html) — what it is, how it saves tokens, keyword vs semantic (FTS5 + vectors fused with RRF).
 >
-> 🕸️ **Want a graph instead of/alongside the RAG?** **`/agy:graph <folder>`** builds a knowledge graph via [Graphify](https://github.com/safishamsi/graphify) + a bundled **`agy-cli` backend**: **Gemini (via agy) builds the graph off Claude's tokens** (tree-sitter + NetworkX + Leiden + `graph.html`), Claude reads it to reason. First run auto-installs graphify. See [`integrations/graphify-agy/`](integrations/graphify-agy/).
+> 🕸️ **Want a graph instead of/alongside the RAG?** **`/agy:graph <folder>`** builds a knowledge graph via [Graphify](https://github.com/safishamsi/graphify): the code graph is extracted **locally with tree-sitter — no LLM, no API key, zero tokens on anyone's budget** (NetworkX + Leiden + `graph.html`), **Gemini via agy names the communities** in one call, and Claude reads the result to reason. First run auto-installs graphify. See [`integrations/graphify-agy/`](integrations/graphify-agy/).
 
 ---
 
