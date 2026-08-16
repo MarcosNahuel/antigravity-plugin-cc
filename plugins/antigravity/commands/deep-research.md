@@ -1,5 +1,5 @@
 ---
-description: Deep, multi-source, fact-checked web research with agy — reach for it when a decision or design depends on getting it right and a single-shot answer is not enough (architecture / tool / vendor choices, thorough landscape scans, anything you will act on). Builds an evidence matrix + a plan you approve, then agy browses each angle in parallel while Claude reasons convergence across adaptive rounds (--depth L<=2 / H<=4), runs an agy red-team pass, and returns a cited report with evidence/inference/assumption tags + an applied recommendation. Heavier and slower than /agy:research (single-shot) — use it when depth and correctness matter more than speed.
+description: Deep, multi-source, fact-checked web research with agy — reach for it when a decision or design depends on getting it right and a single-shot answer is not enough (architecture / tool / vendor choices, thorough landscape scans, anything you will act on). Builds an evidence matrix + a plan you approve, then agy browses each angle one at a time (sequential — see Notes) while Claude reasons convergence across adaptive rounds (--depth L<=2 / H<=4), runs an agy red-team pass, and returns a cited report with evidence/inference/assumption tags + an applied recommendation. Heavier and slower than /agy:research (single-shot) — use it when depth and correctness matter more than speed.
 argument-hint: "[--depth L|H] [--background] [--yes] [--engines agy|mixed] <topic>"
 context: fork
 allowed-tools: Bash, Write, Read, Workflow
@@ -7,8 +7,9 @@ allowed-tools: Bash, Write, Read, Workflow
 
 Deep research command. Does **not** replace `/agy:research` (that one is a fast single-shot lookup) —
 this one drives a multi-round loop through the `deep-research-agy` Workflow: agy browses several
-angles in parallel per round, Claude judges coverage and convergence between rounds, a red-team pass
-challenges the central/single-source claims, and only then does synthesis produce the final report.
+angles **one at a time** per round (never in parallel — see Notes), Claude judges coverage and
+convergence between rounds, a red-team pass challenges the central/single-source claims, and only then
+does synthesis produce the final report.
 
 Raw user request:
 $ARGUMENTS
@@ -125,10 +126,20 @@ Cobertura sections). Present verbatim — do not paraphrase or re-summarize the 
 - `--engines mixed` is a no-op today (agy is the only browsing engine wired in) — don't advertise it
   as multi-engine research until a second engine actually exists.
 - Depth `H` is expensive: up to 4 rounds × up to 6 angles, plus a 10-claim red-team pass, each agy call
-  taking several minutes. Default to `L` unless the topic genuinely needs multi-round convergence.
+  taking several minutes — and now run **sequentially**, so `H` wall-clock is roughly the sum of every
+  angle/red-team call, not the slowest one. Default to `L` unless the topic genuinely needs multi-round
+  convergence.
 - This command never talks to `agy` directly — every agy call happens inside the Workflow, one
-  `antigravity:agy-rescue` subagent invocation per angle/red-team target. If `agy` breaks mid-run, the
-  affected angle calls come back `failed` and the coverage report degrades gracefully (fewer angles
-  completed, noted in `coverage.failedAngleLabels`) rather than crashing the whole run.
+  `antigravity:agy-rescue` subagent invocation per angle/red-team target, **one at a time, never via
+  `parallel()`** (see below). If `agy` breaks mid-run, the affected angle calls come back `failed` and
+  the coverage report degrades gracefully (fewer angles completed, noted in
+  `coverage.failedAngleLabels`) rather than crashing the whole run.
+- **Angles and red-team targets run sequentially, not in parallel, by design.** `agy --print` spins up
+  a full local language-server per invocation; two or more running at once starve each other for
+  CPU/IO and neither completes (measured 2026-07-05 for batch repo cartography and again 2026-08-15
+  for this workflow's own fan-out — a "single-pass" retry still died at 0 bytes after 1h40m while
+  another concurrent `agy` call was running). Do not reintroduce `parallel()` around
+  `agentType:'antigravity:agy-rescue'` calls without re-verifying agy can actually sustain 2+
+  concurrent invocations on the target machine.
 - If `agy` is missing/unauthenticated, Step 1's preflight catches it before any Workflow round starts
   — route the user to `/agy:setup` there rather than discovering it mid-loop.
