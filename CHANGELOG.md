@@ -4,6 +4,25 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2026-08-16
+
+### Fixed
+
+- **`/agy:deep-research` fanned out multiple `agy` processes in parallel, and they starved
+  each other.** `deep-research-agy.js` ran its per-round angle research and its red-team pass with
+  `parallel()` over `agentType:'antigravity:agy-rescue'` — 3-4 concurrent `agy --print` invocations
+  at depth `L`, up to 6 at `H`. Each invocation spins up a full local language-server (gRPC + SQLite
+  trajectory store + browser subagent); two or more running at once fight for CPU/IO and **none of
+  them completes**. This is the same failure already measured and fixed for `/agy-docs` batch repo
+  cartography on 2026-07-05 (concurrency=1, never `parallel()` over agy) — it had never been ported to
+  this workflow. Measured 2026-08-15: the first pass reported "completed" with an empty task output
+  (angles were still alive and wrote real content 3-10 minutes later — a confusing but recoverable
+  symptom), then a "single-pass" retry launched to avoid the fan-out **still died at 0 bytes after
+  1h40m**, because another concurrent `agy` call was running at the same time. Fixed by serializing
+  both fan-outs (`runAgySequential` — one angle/red-team target at a time, in-process). Depth `H`
+  wall-clock now scales with the sum of every call instead of the slowest one; this trades speed for
+  actually finishing.
+
 ## [1.6.0] - 2026-07-31
 
 ### Fixed

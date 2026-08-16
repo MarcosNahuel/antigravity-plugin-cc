@@ -170,6 +170,24 @@ const redTeamPrompt = (c, i) =>
   `MODE: redteam\nWRITE_FILE: ${deepDir}/redteam-${i}.md\nQUESTION: ${question}\nCLAIM: ${c.claim}\nUSER_TEXT:\n${c.claim}`
 function slug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40) }
 
+// agy --print launches a full local language-server per invocation (gRPC + SQLite
+// trajectory store + browser subagent). Two or more running at once starve each
+// other for CPU/IO and NONE of them completes — measured 2026-07-05 (batch repo
+// cartography, /agy-docs) and again 2026-08-15 (this workflow's own angle fan-out:
+// a "single-pass" retry died at 0 bytes after 1h40m while another agy call was
+// still running). Fix: never parallel() over agentType:'antigravity:agy-rescue' —
+// run every agy-backed call ONE AT A TIME, in this process and across the whole
+// round, so nothing else it launches can collide with itself either.
+async function runAgySequential(items, label, fn) {
+  const out = []
+  for (let i = 0; i < items.length; i++) {
+    log(`${label}: ${i + 1}/${items.length}`)
+    const r = await fn(items[i], i)
+    if (r) out.push(r)
+  }
+  return out
+}
+
 const state = { findings: [], seenKeys: new Set(), failedAngles: [] }
 let focus = angles, converged = false, round = 0, lastAnalysis = null
 const attemptedAngles = []
@@ -178,9 +196,9 @@ while (round < MAX_ROUNDS && !converged) {
   round++
   const ph = round === 1 ? 'Round 1' : 'Round 2+'
   attemptedAngles.push(...focus)
-  const results = (await parallel(focus.map((f, i) => () =>
+  const results = await runAgySequential(focus, `R${round} angles`, (f, i) =>
     agent(anglePrompt(f, round, i), { label:`r${round}:${f.label}`, phase:ph, schema:ANGLE_SCHEMA, agentType:'antigravity:agy-rescue' })
-  ))).filter(Boolean)
+  )
   const novel = ingestRound(results, state, round)
   log(`R${round}: +${novel} findings (${state.findings.length} total, ${state.failedAngles.length} failed angles)`)
   const analysis = await agent(
@@ -201,9 +219,9 @@ while (round < MAX_ROUNDS && !converged) {
 // Red-team (agy)
 phase('Red-team')
 const targets = rankClaimsForRedTeam(state.findings, RT_TARGETS)
-const verdicts = (await parallel(targets.map((c, i) => () =>
+const verdicts = await runAgySequential(targets, 'Red-team', (c, i) =>
   agent(redTeamPrompt(c, i), { label:`rt:${c.id}`, phase:'Red-team', schema:REDTEAM_SCHEMA, agentType:'antigravity:agy-rescue' })
-))).filter(Boolean)
+)
 const survivors = applyRedTeam(state.findings, verdicts)
 
 // Synthesis (Claude)
