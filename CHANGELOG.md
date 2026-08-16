@@ -4,6 +4,21 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.2] - 2026-08-16
+
+### Added
+
+- **`agy-rescue` now recognizes concurrency starvation as its own failure signature**, a 4th
+  entry alongside #76 (empty stdout), #217 (Windows Defender rename race) and the 1.0.5 headless
+  auth timeout. When 2+ `agy` processes run at once they starve each other before any reaches
+  `streamGenerateContent` (confirmed: 45s CPU over 100min wall-clock, no conversation ever
+  created) — previously that fell through to the #76 transcript Plan B by default, which can't
+  recover a run where generation never happened, and gave no actionable signal. The agent now
+  checks for other live `agy`/`agy.exe` processes before assuming #76, and returns a clear
+  starvation message instead of retrying blindly into the same collision. Complements 1.6.1
+  (which serializes `/agy:deep-research`'s own fan-out) by covering starvation caused by ANY
+  concurrent agy call, not just that workflow's own.
+
 ## [1.6.1] - 2026-08-16
 
 ### Fixed
