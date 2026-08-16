@@ -113,13 +113,64 @@ In this case there is **no `streamGenerateContent`, no `text_drip`, and nothing 
 
 > agy headless auth timed out (not issue #76 — the model never ran). Fix: run `agy` interactively once in a real terminal to refresh the keyring/OAuth session, then retry. If it persists, re-auth agy.
 
-Distinguish the three failure modes by tailing the latest `~/.gemini/antigravity-cli/log/cli-*.log`:
+Distinguish the four failure modes by tailing the latest `~/.gemini/antigravity-cli/log/cli-*.log`:
 
 | Log signature | Failure | This agent's action |
 |---|---|---|
 | `text_drip … length=N` present, output file missing | #76 empty-stdout (response generated) | recover via transcript Plan B / return stdout |
 | `rename … Access is denied` | #217 Windows Defender race | `sleep 2` + retry once (see below) |
 | `auth timed out` / `silent auth failed` | 1.0.5 headless auth timeout | surface the re-auth message, do NOT retry |
+| none of the above; no conversation ever created; near-zero CPU on the `agy` process | concurrency starvation (2+ `agy` at once) | check for other live `agy` processes, surface the starvation message, do NOT retry blindly |
+
+## Known issue — concurrency starvation (2+ `agy` processes at once, distinct from all of the above)
+
+Measured 2026-07-05 (batch repo cartography, `/agy-docs`) and again 2026-08-15
+(`/agy:deep-research`'s own angle fan-out, before that workflow was fixed to run its
+angles sequentially): running 2 or more `agy --print` invocations at the same time
+on one machine means **none of them complete**. Each invocation spins up a full
+local language-server (gRPC + SQLite trajectory store + browser subagent);
+concurrent ones fight for CPU/IO and starve each other before any reaches
+`streamGenerateContent`. Confirmed measurement: an `agy.exe` process accumulated
+only **45 seconds of CPU time over 100 minutes of wall-clock** and never created a
+conversation at all.
+
+**Signature — this is NOT #76, NOT #217, NOT the auth-timeout.** All three of those
+leave *some* trace (`text_drip`, `rename … Access is denied`, or `auth timed out`).
+Starvation leaves almost nothing: no new entry ever appears under
+`~/.gemini/antigravity-cli/conversations/` for this call, and the log shows little
+to no `streamGenerateContent` activity.
+
+**Detection (one extra Bash call — only when the log tail shows NONE of the three
+known signatures above AND the output file is missing/empty):**
+
+```bash
+# POSIX (Git Bash/WSL/macOS/Linux)
+pgrep -fla '\bagy\b' 2>/dev/null || ps aux 2>/dev/null | grep -i '[a]gy'
+```
+
+```powershell
+# Windows fallback if pgrep/ps resolve to nothing useful
+Get-Process agy -ErrorAction SilentlyContinue | Select-Object Id, CPU, StartTime
+```
+
+If another `agy`/`agy.exe` process is (or was) running at the same time, that is the
+cause. **Do NOT retry immediately** — retrying while the other instance is still
+alive just starves both again. Return this to the caller instead:
+
+> agy call produced no output and no error trace (not #76, not #217, not an auth
+> timeout) — likely concurrency starvation: another `agy` process was running at the
+> same time and both starved each other. Fix: never invoke `agy` from more than one
+> place at once (never `parallel()`/concurrent calls over
+> `agentType:'antigravity:agy-rescue'`); wait for the other instance to finish, then
+> retry this one alone.
+
+If no concurrent `agy` process is found, fall through to the #76 transcript Plan B
+recovery (below) — it may still be a plain empty-stdout case with a log this agent
+hasn't tailed carefully enough. This agent can only detect starvation, not prevent
+it: if it is itself one of several concurrent fan-out calls from a caller (e.g.
+`deep-angle`/`redteam` targets), serializing those calls is the **caller's**
+responsibility, not something this thin forwarder can enforce across separate Task
+invocations it doesn't control.
 
 ## Known issue — Windows `rename .tmp → .pb: Access is denied` (observed 2026-05-28, re-confirmed 2026-05-29)
 
@@ -165,7 +216,8 @@ When this happens, agy exits 0 but the `WRITE_FILE` you instructed it to write *
      ```
      The 2s pause lets Defender finish scanning and release the `.tmp` handle, so the retry's rename usually wins. Do not retry a second time — if it still fails, the path is being held persistently: surface the permanent Defender exclusion command (top of this section) to the user and stop.
    - **`auth timed out` / `silent auth failed` / `keyringAuth: timed out`** → headless auth timeout (1.0.5). The model never ran; nothing is recoverable. Do NOT retry. Return the re-auth message from the "headless auth timeout" section above and stop.
-   - **`text_drip … length=N` present (or none of the above)** → issue #76 (response generated, stdout dropped). Recover it with the **transcript Plan B** (see "Recovering a dropped response"): resolve the conversation id from `cache/last_conversations.json[cwd]`, read `brain/<cid>/.system_generated/logs/transcript.jsonl`, and return the last `PLANNER_RESPONSE.content`. Only if Plan B also yields nothing, return the captured stdout verbatim plus a note that the response could not be recovered.
+   - **`text_drip … length=N` present** → issue #76 (response generated, stdout dropped). Recover it with the **transcript Plan B** (see "Recovering a dropped response"): resolve the conversation id from `cache/last_conversations.json[cwd]`, read `brain/<cid>/.system_generated/logs/transcript.jsonl`, and return the last `PLANNER_RESPONSE.content`. Only if Plan B also yields nothing, return the captured stdout verbatim plus a note that the response could not be recovered.
+   - **None of the above** (no `rename`, no auth-timeout, no `text_drip`) → check for **concurrency starvation** before assuming #76: run the `pgrep`/`Get-Process` check from "Known issue — concurrency starvation" above (one more Bash call). If another `agy` process is/was running concurrently, return the starvation message and do NOT retry. If no concurrent `agy` is found, fall back to the #76 transcript Plan B recovery — it may still be a plain empty-stdout case.
 
 3. **Setup mode is exempt** from the output-file check (it has no `WRITE_FILE`), but it still does the pre-flight sweep.
 
@@ -1255,7 +1307,7 @@ cat "$OUT" 2>/dev/null
 
 - One `Bash` call for the main `agy` invocation per attempt (mode `research`/`ask`/`review`/`scrape`/`doc-to-md`/`design-review`/`report-generate`/`notebook`/`notebook-index`/`notebook-ask`/`notebook-group`/`transcribe`/`media`/`deep-angle`/`redteam` may retry once if the WRITE_FILE check detects the Windows rename bug — a second `Bash` call to agy is allowed only on retry, not for branching logic).
 - The pre-flight `.tmp` sweep adds one Bash call before agy in every mode. The output-file check adds one Bash call after agy (test -s + optional log tail) in modes with WRITE_FILE.
-- **Response recovery is allowed when output is missing/empty** (issue #76): one Bash call to tail the log for triage, and one Bash call to run the transcript Plan B recovery. These are recovery calls, not exploration — only run them when stdout is empty or the WRITE_FILE check failed, never speculatively. `rescue` mode (no WRITE_FILE) may use these same two recovery calls when stdout comes back empty.
+- **Response recovery is allowed when output is missing/empty** (issue #76): one Bash call to tail the log for triage, and ONE more recovery Bash call chosen by what the tail shows — the transcript Plan B recovery when `text_drip` is present, or the concurrency-starvation process check (`pgrep`/`Get-Process`) when none of the three known log signatures appear. These are recovery calls, not exploration — only run them when stdout is empty or the WRITE_FILE check failed, never speculatively. `rescue` mode (no WRITE_FILE) may use these same two recovery calls when stdout comes back empty.
 - Mode `record` and `research` may use one additional `Bash` call for post-processing (file moves, ffmpeg) and one `Write` call to prepend frontmatter or append a hint. Mode `setup` may use one additional `Bash` call for the version/log check. Mode `ask` may use one Bash call before agy (mktemp) and one after (rm). Mode `review` may use one Bash call before (size check on DIFF_FILE + mktemp) and one after (rm of both temp dirs). Mode `report-generate` may use one Bash call for output dir setup and one after for image asset moves.
 - Do NOT inspect the repository, read other files, grep, monitor progress, or do follow-up reasoning beyond what each mode requires.
 - Do NOT paraphrase, summarize, or rewrite agy's output. Return it as-is.
