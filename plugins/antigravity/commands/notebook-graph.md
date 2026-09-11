@@ -18,7 +18,7 @@ Resolve `OUTDIR = docs/agy/notebook/<slug>` from the folder (same `slug()` the n
 `notebook.db` is missing, tell the user to run `/agy:notebook <folder> | <objetivo>` first. Then:
 
 ```bash
-python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/notebook_graph.py" "$OUTDIR"
+python "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/notebook_graph.py" "$OUTDIR"
 ```
 
 It prints `GRAPH nodes=N edges=M (cooccur=…, explicit=…) hubs=[…]` and writes `<OUTDIR>/graph.json`

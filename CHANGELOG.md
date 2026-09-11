@@ -4,6 +4,37 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.3] - 2026-09-10
+
+### Fixed
+
+- **All `${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/...` invocations pointed at the
+  wrong directory whenever `CLAUDE_PLUGIN_ROOT` was actually set.** `CLAUDE_PLUGIN_ROOT` resolves to
+  the plugin's OWN root (verified against both the marketplace clone and the installed cache: both
+  have `scripts/` directly under the plugin root, not under a nested `plugins/antigravity/`), so the
+  old template appended a bogus extra `plugins/antigravity/` segment. Confirmed 2026-09-10: in a
+  `Bash`/background shell `CLAUDE_PLUGIN_ROOT` is unset, so every one of the 18 occurrences (8 files)
+  silently fell back to `$PWD/plugins/antigravity` instead — wrong whenever `$PWD` is a client repo.
+  Fixed by moving the `plugins/antigravity` fallback segment inside the `:-` default
+  (`${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/...`), so a correctly-set
+  `CLAUDE_PLUGIN_ROOT` resolves directly and the `$PWD`-relative fallback is unchanged.
+- **`agy_scratch.py` now prints why it failed.** Previously an `exit 1` only printed `MISSING <path>`
+  with no reason — callers had no signal to distinguish a timeout, an `agy` error, or a plain empty
+  response. It now prints (to stderr) the timeout duration on a `TimeoutExpired`, `agy`'s own exit
+  code, and a tail of its captured stdout/stderr when a `--out` file was not produced.
+
+### Added
+
+- **`agents/agy-rescue.md` (and `commands/notebook.md`, `commands/deep-research.md`): an explicit
+  rule against reacting to a missing/failing `agy_scratch.py` helper by searching the disk.**
+  Confirmed 2026-09-10 (session `4e148395-5c27-49ff-a9a5-aa8132a3cf1a`, `/agy:deep-research`): every
+  time an `agy_scratch.py` invocation failed with exit 1, the calling agent launched a background
+  `find` — `find "$HOME" -maxdepth 6 -iname agy_scratch.py`, and once `find / -maxdepth 6 -iname
+  agy_scratch.py`, run via `run_in_background`. The `Bash` tool's timeout kills the shell that
+  launched the background command but not the `find.exe` child itself, so these accumulated: 26
+  orphaned `find.exe` processes over several hours, CPU at 95%. The agents now report the exact
+  command, exit code, and stderr instead, and stop.
+
 ## [1.6.2] - 2026-08-16
 
 ### Added

@@ -122,6 +122,31 @@ Distinguish the four failure modes by tailing the latest `~/.gemini/antigravity-
 | `auth timed out` / `silent auth failed` | 1.0.5 headless auth timeout | surface the re-auth message, do NOT retry |
 | none of the above; no conversation ever created; near-zero CPU on the `agy` process | concurrency starvation (2+ `agy` at once) | check for other live `agy` processes, surface the starvation message, do NOT retry blindly |
 
+## Known issue — `agy_scratch.py` helper missing, unresolved path, or `exit 1` (never search the disk)
+
+Confirmed 2026-09-10 (session `4e148395-5c27-49ff-a9a5-aa8132a3cf1a`, `traid-kuidar-agente-3`,
+`/agy:deep-research`): `CLAUDE_PLUGIN_ROOT` is **not set** in the shell a `Bash`/background call
+runs in on this machine, so every `${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/agy_scratch.py`
+invocation fell back to the `$PWD/plugins/antigravity` branch — wrong whenever `$PWD` is a client
+repo (it has no `plugins/antigravity/` subtree). Separately, `agy_scratch.py` itself can legitimately
+`exit 1` with a `MISSING <path>` line on stdout even when its own path resolved fine — that means
+the underlying `agy --print` call did not produce the requested `--out` file (timeout, concurrency
+starvation per the section above, or a plain empty response), not that the helper script is missing.
+
+**When `python .../agy_scratch.py` fails to be found, or exits 1, or is not on this machine at all:**
+
+- **NEVER launch a disk-wide or home-wide search to locate it** — no `find / …`, no
+  `find "$HOME" -maxdepth N -iname agy_scratch.py`, no `Get-ChildItem C:\ -Recurse`, and no variant
+  of these run via `run_in_background`/`Start-Process`. On 2026-09-10 this exact reaction produced
+  26 orphaned `find.exe` processes over several hours (the `Bash` tool's timeout kills the shell
+  that launched a background command, not the child process itself) and pushed CPU to 95%.
+- **Do not spawn a background diagnostic process to "figure out why" on your own.** Report and stop.
+- Report to the caller: the exact command run, its exit code, and the captured stdout/stderr
+  (`agy_scratch.py` now prints its failure reason — see below). Let the caller (Nahuel or the
+  orchestrating skill) decide whether to reinstall, re-point `CLAUDE_PLUGIN_ROOT`, or retry serially.
+- If you already know the plugin's installed location from this conversation (e.g. it was resolved
+  earlier in the same session), reuse that exact absolute path — do not re-derive it by searching.
+
 ## Known issue — concurrency starvation (2+ `agy` processes at once, distinct from all of the above)
 
 Measured 2026-07-05 (batch repo cartography, `/agy-docs`) and again 2026-08-15
@@ -636,7 +661,7 @@ One document → one **objective-driven** summary (NOT a faithful conversion). P
 
 - Timeout: `6m0s` (single document, summary not full transcription).
 - **Invoke agy via the scratch-then-move helper — do NOT call `agy` directly.** Run:
-  `python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/agy_scratch.py" --timeout 360 --in "<file agy READS>" --out "<WRITE_FILE>" --out "<WRITE_FILE with .resumen.md→.facts.json>" --prompt "<the prompt below>"`.
+  `python "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/agy_scratch.py" --timeout 360 --in "<file agy READS>" --out "<WRITE_FILE>" --out "<WRITE_FILE with .resumen.md→.facts.json>" --prompt "<the prompt below>"`.
   The helper stages the `--in` files into a fresh neutral scratch dir, runs `agy --add-dir <scratch>`
   ONLY (never `--add-dir` the project), then **moves** each `--out` to its final path and prints
   `MOVED <path>` / `MISSING <path>`. This gives **0 untracked-file snapshots + 0 artifact-path
@@ -709,7 +734,7 @@ All per-document summaries → a relevance **index** + a cited **master synthesi
 run after the whole sweep. Reads only the small `*.resumen.md` files.
 
 - Timeout: `8m0s`.
-- **Invoke agy via the scratch-then-move helper** (see `Mode: notebook` — gives 0 project snapshots + 0 write rejections, repo-independent, zero quality cost): `python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/agy_scratch.py" --timeout 480 --in-dir "<SUMMARIES_DIR>" --out "<INDEX_FILE>" --out "<MASTER_FILE>" --out "<TIMELINE_FILE>" --out "<ENTIDADES_FILE>" --prompt "<the prompt below>"`. `--in-dir` stages every `*.resumen.md` into scratch and rewrites the `SUMMARIES_DIR` reference in the prompt; the helper moves the four outputs to their final paths.
+- **Invoke agy via the scratch-then-move helper** (see `Mode: notebook` — gives 0 project snapshots + 0 write rejections, repo-independent, zero quality cost): `python "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/agy_scratch.py" --timeout 480 --in-dir "<SUMMARIES_DIR>" --out "<INDEX_FILE>" --out "<MASTER_FILE>" --out "<TIMELINE_FILE>" --out "<ENTIDADES_FILE>" --prompt "<the prompt below>"`. `--in-dir` stages every `*.resumen.md` into scratch and rewrites the `SUMMARIES_DIR` reference in the prompt; the helper moves the four outputs to their final paths.
 - Prompt template:
 
   ```
@@ -757,7 +782,7 @@ Answer a question from the existing per-document summaries (the "chat" over a no
 Reads only the small `*.resumen.md` files — never the original documents.
 
 - Timeout: `5m0s`.
-- **Invoke agy via the scratch-then-move helper** (see `Mode: notebook` — 0 project snapshots + 0 write rejections, repo-independent, zero quality cost): `python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/agy_scratch.py" --timeout 300 --in-dir "<SUMMARIES_DIR>" --out "<WRITE_FILE>" --prompt "<the prompt below>"`. `--in-dir` stages every `*.resumen.md` into scratch and rewrites the `SUMMARIES_DIR` reference; the helper moves the answer to its final path.
+- **Invoke agy via the scratch-then-move helper** (see `Mode: notebook` — 0 project snapshots + 0 write rejections, repo-independent, zero quality cost): `python "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/agy_scratch.py" --timeout 300 --in-dir "<SUMMARIES_DIR>" --out "<WRITE_FILE>" --prompt "<the prompt below>"`. `--in-dir` stages every `*.resumen.md` into scratch and rewrites the `SUMMARIES_DIR` reference; the helper moves the answer to its final path.
 - Prompt template:
 
   ```
@@ -789,7 +814,7 @@ file), each in the exact `Mode: notebook` shape, so `Mode: notebook-index` keeps
 granularity with no index-side change.
 
 - Timeout: `6m0s` (batch is char-budgeted ≤24k by the caller, so it stays well under the limit).
-- **Invoke agy via the scratch-then-move helper** (see `Mode: notebook` — 0 project snapshots + 0 write rejections, repo-independent, zero quality cost): `python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/agy_scratch.py" --timeout 360 --in "<each MEMBER_FILE>" --out "<each WRITE_FILES member>" --out "<each member's .facts.json>" --prompt "<the prompt below>"`. Pass one `--in` per member text file and one `--out` per output file (the `.resumen.md` AND its `.facts.json`, for every member). The helper stages reads + writes in scratch, moves each member output to its final path, and prints `MOVED`/`MISSING` per file — re-send only the groups with a `MISSING` member.
+- **Invoke agy via the scratch-then-move helper** (see `Mode: notebook` — 0 project snapshots + 0 write rejections, repo-independent, zero quality cost): `python "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/agy_scratch.py" --timeout 360 --in "<each MEMBER_FILE>" --out "<each WRITE_FILES member>" --out "<each member's .facts.json>" --prompt "<the prompt below>"`. Pass one `--in` per member text file and one `--out` per output file (the `.resumen.md` AND its `.facts.json`, for every member). The helper stages reads + writes in scratch, moves each member output to its final path, and prints `MOVED`/`MISSING` per file — re-send only the groups with a `MISSING` member.
 - `MEMBER_FILES` (a.k.a. `TEXT_FILES`) is a `|`-joined list of extracted-text paths; `MEMBER_NAMES`
   the matching display names; `WRITE_FILES` the matching `|`-joined output paths — all three in the
   SAME order, one entry per document.

@@ -79,12 +79,18 @@ def main():
     to = a.timeout if str(a.timeout).endswith("s") else f"{a.timeout}s"
     cmd = [agy, "--dangerously-skip-permissions", "--add-dir", scratch,
            "--print-timeout", to, "--print", prompt]
+    proc_timed_out = False
+    result = None
     try:
-        subprocess.run(cmd, input="", capture_output=True, text=True, encoding="utf-8",
-                       errors="ignore", cwd=scratch,
-                       timeout=int(str(a.timeout).rstrip("s")) + 30, check=False)
+        result = subprocess.run(cmd, input="", capture_output=True, text=True, encoding="utf-8",
+                                 errors="ignore", cwd=scratch,
+                                 timeout=int(str(a.timeout).rstrip("s")) + 30, check=False)
+    except subprocess.TimeoutExpired as e:
+        proc_timed_out = True
+        print(f"agy run error: timed out after {e.timeout}s (--print-timeout was {to})",
+              file=sys.stderr)
     except Exception as e:
-        print(f"agy run error: {e}")
+        print(f"agy run error: {e}", file=sys.stderr)
 
     missing = 0
     for sp, fp in out_map:
@@ -100,6 +106,24 @@ def main():
             print(f"MOVED {fp}")
         else:
             print(f"MISSING {fp}"); missing += 1
+
+    if missing and not proc_timed_out:
+        # agy_scratch.py's own exit-1 signal (`MISSING <path>`) gives no reason by itself —
+        # surface why agy produced nothing, so a caller doesn't have to go diagnose it blind.
+        if result is None:
+            print("agy run reason: agy never ran (see 'agy run error' above)", file=sys.stderr)
+        elif result.returncode != 0:
+            print(f"agy run reason: agy exited {result.returncode}", file=sys.stderr)
+        tail_err = (result.stderr or "").strip()[-2000:] if result else ""
+        tail_out = (result.stdout or "").strip()[-2000:] if result else ""
+        if tail_err:
+            print(f"agy stderr (tail):\n{tail_err}", file=sys.stderr)
+        elif tail_out:
+            print(f"agy stdout (tail, no stderr):\n{tail_out}", file=sys.stderr)
+        elif result is not None:
+            print("agy produced no stdout/stderr at all (see agy-rescue.md 'concurrency "
+                  "starvation' — likely another agy process running at the same time)",
+                  file=sys.stderr)
 
     shutil.rmtree(scratch, ignore_errors=True)
     return 1 if missing else 0

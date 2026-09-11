@@ -18,7 +18,7 @@ Resolve `OUTDIR = docs/agy/notebook/<slug>` from the folder argument (same `slug
 uses). Then:
 
 ```bash
-python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/notebook_job.py" status "$OUTDIR"
+python "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/notebook_job.py" status "$OUTDIR"
 ```
 
 It prints the progress line (`NOTEBOOK SWEEP — NN% (done/total …)`), elapsed/ETA, the objetivo, and
