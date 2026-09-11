@@ -21,7 +21,7 @@ $ARGUMENTS
 Parse `$ARGUMENTS`: the leading existing-directory token is the **folder**. Then:
 
 ```bash
-python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/graphify_install.py"
+python "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/graphify_install.py"
 ```
 
 - Last line `READY` → continue with everything below.
@@ -35,7 +35,7 @@ python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/graphify_install
 ## Phase 1 — Build the graph (local, free)
 
 ```bash
-eval "$(python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/graphify_outdir.py" "<FOLDER>")"
+eval "$(python "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/graphify_outdir.py" "<FOLDER>")"
 $GFY extract "<FOLDER>" --code-only
 ```
 
@@ -52,7 +52,7 @@ $GFY extract "<FOLDER>" --code-only
 ## Phase 2 — Name the communities with Gemini (skip if `READY_NO_AGY`)
 
 ```bash
-python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/graphify_label_agy.py" "<FOLDER>"
+python "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/graphify_label_agy.py" "<FOLDER>"
 ```
 
 - One `agy` call per 100 communities, off the host assistant's tokens. Last line `LABELED <n>` → good.

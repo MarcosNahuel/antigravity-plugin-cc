@@ -64,7 +64,7 @@ user is on board. With `--yes` or `--background`, skip this step entirely.
 
 ```
 Workflow({
-  scriptPath: "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/deep-research-agy.js",
+  scriptPath: "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/deep-research-agy.js",
   args: {
     question: <topic>,
     matrix: <matrix from Step 2>,
@@ -105,7 +105,7 @@ an object here). `deepDir` and `title` must be final, absolute/resolved values �
   `render-report.mjs` CLI in one Bash call:
 
   ```bash
-  node "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/render-report.mjs" "<DEEP_DIR>/_render.json" > "<WRITE_FILE>"
+  node "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/render-report.mjs" "<DEEP_DIR>/_render.json" > "<WRITE_FILE>"
   ```
 
   where `meta = { title: <topic>, depth: <L|H>, rounds: <result.rounds>, converged: <result.converged>, date: <DATE> }`.
@@ -143,3 +143,8 @@ Cobertura sections). Present verbatim — do not paraphrase or re-summarize the 
   concurrent invocations on the target machine.
 - If `agy` is missing/unauthenticated, Step 1's preflight catches it before any Workflow round starts
   — route the user to `/agy:setup` there rather than discovering it mid-loop.
+- If an angle/red-team `agy-rescue` call, or any `agy_scratch.py`-based helper it uses, fails to find
+  its own script or exits 1: never react by searching the disk (`find /`, `find "$HOME" -maxdepth N`,
+  `Get-ChildItem C:\ -Recurse`) or by launching a background diagnostic — see the matching "Known
+  issue" in `agents/agy-rescue.md`. Report exit code + stderr for that angle and let the run degrade
+  gracefully as described above rather than spawning recovery processes.

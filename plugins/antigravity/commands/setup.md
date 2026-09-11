@@ -10,7 +10,7 @@ First report the whole agent stack — what's installed, what's missing, how to 
 knows which `/agy:*` capabilities are ready:
 
 ```bash
-python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/stack_check.py"
+python "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/stack_check.py"
 ```
 
 It checks: **agy CLI** (required), **PyMuPDF/fitz** (required for `/agy:notebook` PDFs), **sqlite-vec**

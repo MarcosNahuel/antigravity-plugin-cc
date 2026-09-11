@@ -191,9 +191,9 @@ file** (HTTP 429) — that is **rate-limiting, not a per-document failure**; do 
 so the sweep is observable + resumable; refresh it after each check:
 
 ```bash
-python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/notebook_job.py" init "$OUTDIR" "$OBJETIVO"
+python "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/notebook_job.py" init "$OUTDIR" "$OBJETIVO"
 # ... after each retry-round check:
-python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/notebook_job.py" sync "$OUTDIR"
+python "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/notebook_job.py" sync "$OUTDIR"
 ```
 
 If the user passed `--background` (strip it in Phase 0), tell them up front: *"barriendo N documentos en
@@ -255,7 +255,7 @@ work — totals, entity lookups, timelines — instead of re-reading prose. Pure
 tolerant (a bad/missing sidecar falls back to the `.md` frontmatter, never crashes):
 
 ```bash
-python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/notebook_db.py" "$OUTDIR" "$OBJETIVO"
+python "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/notebook_db.py" "$OUTDIR" "$OBJETIVO"
 ```
 
 (`CLAUDE_PLUGIN_ROOT` points at the plugin install; if unset, use the repo path to
@@ -270,7 +270,7 @@ is set, else a keyword-ish lexical fallback (it says which). FTS5 keyword search
 this step, so it's purely additive:
 
 ```bash
-python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/notebook_embed.py" "$OUTDIR"
+python "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/notebook_embed.py" "$OUTDIR"
 ```
 
 It prints `EMBEDDED chunks=N embedder=… dim=…`, or `SEMANTIC_UNAVAILABLE: pip install sqlite-vec`
@@ -329,7 +329,7 @@ Then estimate the **Claude tokens this sweep saved** (agy read the whole corpus;
 synthesis) — ONE Bash call:
 
 ```bash
-python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/tokens_saved.py" "$OUTDIR"
+python "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/tokens_saved.py" "$OUTDIR"
 ```
 
 It prints `TOKENS_SAVED corpus~C claude_reads~R saved~S ratio~Xx` + a one-line summary. (Scanned docs
@@ -357,6 +357,10 @@ point (agy already did the reading). Only the two final files.
   byte-identical extracted facts). agy gets the identical prompt + input bytes, so output is unchanged.
 - agy `--print` writes nothing to stdout outside a TTY (issue #76) — every agy call writes to a
   file; the subagent verifies the file exists. This command never relies on agy stdout.
+- **If `agy_scratch.py` is not found, or exits 1 (`MISSING <path>`)**: never search the disk for it
+  (`find /`, `find "$HOME" -maxdepth N`, or similar) and never launch a background diagnostic on
+  your own — see "Known issue — `agy_scratch.py` helper missing, unresolved path, or `exit 1`" in
+  `agents/agy-rescue.md`. Report the exact command, exit code, and stderr, and stop.
 - 1 document per agy call (large multimodal batches time out), up to 10 calls per wave (see Phase 1).
 - **Large scanned PDFs are chunked**: a scanned/vision PDF over ~20 pages is split into 15-page
   sub-PDFs (in `_chunks/`), each summarized separately as `NN-<slug>-pSTART-END` — avoids the

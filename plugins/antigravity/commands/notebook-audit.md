@@ -19,7 +19,7 @@ uses). If `notebook.db` is missing, tell the user to run `/agy:notebook <folder>
 and stop. Otherwise run the audit:
 
 ```bash
-python "${CLAUDE_PLUGIN_ROOT:-$PWD}/plugins/antigravity/scripts/notebook_audit.py" "$OUTDIR"
+python "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/notebook_audit.py" "$OUTDIR"
 ```
 
 It prints `AUDIT findings=N report=…/CONTRADICCIONES.md` and writes the report. Checks:
