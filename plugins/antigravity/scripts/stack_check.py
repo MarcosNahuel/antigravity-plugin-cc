@@ -5,9 +5,10 @@ bootstrap prompt (docs/SETUP_AGENT_STACK.md).
 
 Usage:  python stack_check.py
 """
-import os, sys, shutil, importlib.util
+import os, sys, shutil, importlib.util, json
 
 HOME = os.path.expanduser("~")
+AGY_SETTINGS = os.path.join(HOME, ".gemini", "antigravity-cli", "settings.json")
 
 
 def find_agy():
@@ -53,6 +54,18 @@ def graphify_ready():
         return False
 
 
+def agy_tool_permission():
+    """Read ONLY the `toolPermission` field from agy's own global settings.json (read-only,
+    never printed as a dump — this file can hold other, unrelated entries). Returns the value
+    or None if the file/field is missing or unreadable. Never writes anything."""
+    try:
+        with open(AGY_SETTINGS, encoding="utf-8") as f:
+            data = json.load(f)
+        return data.get("toolPermission")
+    except Exception:
+        return None
+
+
 def main():
     rows = []
     # component, ok, requirement, purpose, how-to-fix
@@ -94,6 +107,22 @@ def main():
     print()
     capdone = sum(1 for r in rows if r[1])
     print(f"STACK {capdone}/{len(rows)} present" + (f" - {n_req_missing} REQUIRED missing" if n_req_missing else " - all required OK"))
+
+    perm = agy_tool_permission()
+    if perm == "always-proceed":
+        print()
+        print("Permisos de agy (global, fuera de este plugin):")
+        print(f"  [ATENCION] toolPermission = \"always-proceed\" en {AGY_SETTINGS}")
+        print("             agy aprueba TODAS las herramientas que pide, con o sin --dangerously-skip-permissions")
+        print("             (este plugin ya pasa ese flag para poder correr sin TTY; con always-proceed, la")
+        print("             aprobacion queda doble: ni el flag ni la config global piden confirmacion).")
+        print("             Este check solo lee el archivo, no lo toca. Para acotarlo: abri `agy` interactivo")
+        print("             y cambia Settings > Tool Permission a un modo que pida confirmacion (p.ej. \"ask\"")
+        print("             o el equivalente por-workspace), o edita ese campo a mano en el settings.json.")
+    elif perm is not None:
+        print()
+        print(f"Permisos de agy: toolPermission = \"{perm}\" (no es always-proceed, sin alerta).")
+
     return 0 if n_req_missing == 0 else 1
 
 

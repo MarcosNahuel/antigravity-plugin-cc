@@ -93,6 +93,22 @@ export function rankClaimsForRedTeam(findings, limit) {
     .slice(0, limit)
 }
 
+export function citationIntegrityWarnings(refs) {
+  const byUrl = new Map()
+  for (const r of refs || []) {
+    const u = normURL(r.url)
+    if (!byUrl.has(u)) byUrl.set(u, new Set())
+    byUrl.get(u).add(String(r.title || '').trim().toLowerCase())
+  }
+  const warnings = []
+  for (const [u, titles] of byUrl) {
+    if (titles.size > 1) {
+      warnings.push(`Mismo id/URL citado para titulos distintos (${u}): "${[...titles].join('" / "')}" — una de las dos referencias esta mal asignada, confirmar el id/URL correcto antes de citar.`)
+    }
+  }
+  return warnings
+}
+
 export function applyRedTeam(findings, verdicts) {
   const byClaim = new Map()
   for (const v of verdicts || []) if (v && v.claim) byClaim.set(v.claim, v)
@@ -125,6 +141,13 @@ export function renderReportMarkdown(report, meta) {
   ].join('\n'))
   L.push(`# ${meta.title}\n`)
   if (report.tldr && report.tldr.length) { L.push('## TL;DR'); for (const b of report.tldr) L.push(`- ${b}`); L.push('') }
+  const citeWarnings = (report.coverage && report.coverage.citationWarnings) || []
+  if (citeWarnings.length) {
+    L.push('## ⚠ Verificacion de citas')
+    L.push('Este informe tiene referencias que no se pudieron reconciliar automaticamente. Abri cada URL antes de citarla:')
+    for (const w of citeWarnings) L.push(`- ${w}`)
+    L.push('')
+  }
   if (report.context) { L.push('## Contexto'); L.push(report.context + '\n') }
   if (report.findings && report.findings.length) {
     L.push('## Findings')

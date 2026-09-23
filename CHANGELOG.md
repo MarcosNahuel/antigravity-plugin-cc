@@ -4,6 +4,35 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.4] - 2026-09-23
+
+### Added
+
+- **Citation-integrity pass for `/agy:research` and `/agy:deep-research`.** Confirmed 2026-09-23: agy
+  1.2.9, running `/agy:research --intensity high`, cited the same arXiv id (`2410.02694`) for two
+  different papers (NoLiMa and HELMET), and separately stated an unverifiable "+8% to +14%" figure and
+  cited possibly-nonexistent sources (`flowtivity.ai`, `daily.dev`, `lmcouncil.ai`) — agy's own
+  anti-fabrication prompt rules did not catch any of it. Added a deterministic, zero-network check
+  (`scripts/verify_citations.py`, and `citationIntegrityWarnings` in `deep-research-lib.mjs` /
+  `deep-research-agy.js`) that runs after every research report is written: it groups the reference
+  list by normalized URL and flags any URL/id cited under two materially different titles. Warnings get
+  prepended to the `/agy:research` report as a `> [!WARNING]` block, and surface in `/agy:deep-research`
+  under a `## ⚠ Verificacion de citas` section (also downgrades `overallConfidence` from high to
+  medium). This does NOT verify a URL resolves or that the cited figure is actually on the page — only a
+  human opening the link can do that — so it's advisory, not a hard gate. Also strengthened the
+  `research` (LOW/MEDIUM/HIGH), `deep-angle`, and `redteam` prompt templates in `agy-rescue.md`: quotes
+  must be verbatim from the opened page (never reused from memory), any cited price/version whose source
+  predates the current calendar year must say so inline, and the `redteam` checklist now requires
+  actually opening each claim's source URL(s) before verdicting `hold`.
+- **`/agy:setup` (via `stack_check.py`) now warns, read-only, when agy's global
+  `~/.gemini/antigravity-cli/settings.json` has `toolPermission: "always-proceed"`.** Confirmed
+  2026-09-23: this plugin already runs `agy --print --dangerously-skip-permissions` by design (agy has
+  no TTY in headless/subprocess mode to answer a permission prompt, so removing the flag would hang
+  every mode indefinitely — documented above under "Invocation contract"); `always-proceed` on top of
+  that means agy approves every tool call from either source, with no confirmation anywhere. The check
+  reads only the `toolPermission` field (never dumps the file, never a secret) and explains how to scope
+  it down manually — it never edits Nahuel's (or anyone's) agy configuration itself.
+
 ## [1.6.3] - 2026-09-10
 
 ### Fixed

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { normURL, domainOf, distinctDomains, corroborationOf, ingestRound, isConverged, computeCoverage, rankClaimsForRedTeam, applyRedTeam, renderReportMarkdown } from '../deep-research-lib.mjs'
+import { normURL, domainOf, distinctDomains, corroborationOf, ingestRound, isConverged, computeCoverage, rankClaimsForRedTeam, applyRedTeam, citationIntegrityWarnings, renderReportMarkdown } from '../deep-research-lib.mjs'
 
 test('normURL strips www, scheme, trailing slash, lowercases', () => {
   assert.equal(normURL('https://WWW.Example.com/Path/'), 'example.com/path')
@@ -96,6 +96,57 @@ test('applyRedTeam kills and downgrades (pure: no input mutation)', () => {
   assert.equal(findings[1].redteam, origF1Redteam, 'f1 redteam should not be mutated')
   assert.equal(findings[0].killed, undefined, 'f0 should not have killed property')
   assert.equal(findings[1].killed, undefined, 'f1 should not have killed property')
+})
+
+test('citationIntegrityWarnings: flags same URL/id cited for two different titles', () => {
+  // Reproduces the 2026-09-23 finding: NoLiMa and HELMET both cited arXiv 2410.02694.
+  const refs = [
+    { n: 28, title: 'NoLiMa: Evaluating Long-Context Reasoning', url: 'https://arxiv.org/abs/2410.02694' },
+    { n: 30, title: 'HELMET: How to Evaluate Long-Context Models', url: 'https://arxiv.org/abs/2410.02694' },
+  ]
+  const warnings = citationIntegrityWarnings(refs)
+  assert.equal(warnings.length, 1)
+  assert.match(warnings[0], /2410\.02694/)
+  assert.match(warnings[0], /NoLiMa/i)
+  assert.match(warnings[0], /HELMET/i)
+})
+
+test('citationIntegrityWarnings: same URL cited twice with the SAME title is not a warning', () => {
+  const refs = [
+    { n: 1, title: 'BGE-M3', url: 'https://github.com/FlagOpen/FlagEmbedding' },
+    { n: 2, title: 'bge-m3', url: 'https://github.com/FlagOpen/FlagEmbedding' }, // same title, different case
+  ]
+  assert.deepEqual(citationIntegrityWarnings(refs), [])
+})
+
+test('citationIntegrityWarnings: no references -> no warnings', () => {
+  assert.deepEqual(citationIntegrityWarnings([]), [])
+  assert.deepEqual(citationIntegrityWarnings(undefined), [])
+})
+
+test('renderReportMarkdown surfaces citation warnings prominently when present', () => {
+  const md = renderReportMarkdown({
+    tldr: ['punto 1'],
+    findings: [{ statement: 'X', type: 'evidence', confidence: 'high', sources: ['https://a.com'], caveats: '' }],
+    coverage: { anglesCompleted: 3, anglesFailed: 0, sourceCount: 12, distinctDomains: 8, confidencePenalties: [], citationWarnings: ['Mismo id/URL citado para titulos distintos (arxiv.org/abs/1): "A" / "B"'] },
+    conclusion: { recommendation: 'hace Y', overallConfidence: 'medium' },
+    references: [{ n: 1, title: 'T', url: 'https://a.com', type: 'docs', date: '2026' }],
+  }, { title: 'Tema', depth: 'L', rounds: 2, converged: true, date: '2026-09-23' })
+
+  assert.match(md, /## ⚠ Verificacion de citas/)
+  assert.match(md, /titulos distintos/)
+})
+
+test('renderReportMarkdown omits the citation-warning section when there are none', () => {
+  const md = renderReportMarkdown({
+    tldr: ['punto 1'],
+    findings: [{ statement: 'X', type: 'evidence', confidence: 'high', sources: ['https://a.com'], caveats: '' }],
+    coverage: { anglesCompleted: 3, anglesFailed: 0, sourceCount: 12, distinctDomains: 8, confidencePenalties: [] },
+    conclusion: { recommendation: 'hace Y', overallConfidence: 'medium' },
+    references: [{ n: 1, title: 'T', url: 'https://a.com', type: 'docs', date: '2026' }],
+  }, { title: 'Tema', depth: 'L', rounds: 2, converged: true, date: '2026-09-23' })
+
+  assert.doesNotMatch(md, /Verificacion de citas/)
 })
 
 test('renderReportMarkdown emits frontmatter, honesty tags, coverage, applied rec', () => {

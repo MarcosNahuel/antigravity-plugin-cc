@@ -410,6 +410,19 @@ By default, whatever `agy` decides internally — the CLI default is Gemini 3.5 
 
 `docs/agy/research/YYYY-MM-DD-<slug>.md`, relative to the directory where you ran the slash command. Each file gets a YAML frontmatter block with `title`, `intensity`, `model`, `created`, `sensitivity`, `source_tool`. You can commit these to your repo — they're plain markdown.
 
+### How trustworthy are the citations in a research report?
+
+Every `/agy:research` and `/agy:deep-research` run ends with an automated, zero-network citation-integrity
+check (`verify_citations.py` / `citationIntegrityWarnings` in `deep-research-lib.mjs`): it groups the
+report's references by normalized URL and flags any URL/id cited under two materially different titles.
+This was added 2026-09-23 after agy 1.2.9 cited the same arXiv id for two different papers in one report.
+It's a narrow, deterministic check — it does **not** open every URL or confirm a cited figure is really on
+the page, so a flagged report still needs a human to open the link, and an unflagged report can still
+contain claims that don't hold up. Both `/agy:research`'s prompt templates and `/agy:deep-research`'s
+`redteam` pass also instruct agy to quote verbatim and open the source before citing an id or a
+price/version figure — but agy is a model, not a fact database; treat every hard number as `[UNVERIFIED]`
+until you've opened the source yourself.
+
 ### Can I change the output directory?
 
 Not via flag yet. It's on the roadmap. For now, edit `plugins/antigravity/commands/research.md` and change the `WRITE_FILE` path.
