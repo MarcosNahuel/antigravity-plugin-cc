@@ -415,9 +415,35 @@ OUTPUT INSTRUCTION: Do NOT print the answer to chat. Write the full markdown rep
 Use the write_file tool. After writing, confirm the path. That is your only deliverable.
 ```
 
-Invoke agy with `--add-dir <CWD>` so it can write. After agy returns, read the file and return to caller:
+Invoke agy with `--add-dir <CWD>` so it can write.
+
+**Citation-integrity pass (mandatory, one extra call, after the frontmatter Write below).** agy's own
+anti-fabrication prompt rules (below) are necessary but not sufficient — confirmed 2026-09-23: agy 1.2.9
+still cited the same arXiv id (`2410.02694`) for two different papers despite those exact rules being in
+the prompt. Run ONE Bash call against the just-written `WRITE_FILE`:
+
+```bash
+python "${CLAUDE_PLUGIN_ROOT:-$PWD/plugins/antigravity}/scripts/verify_citations.py" "<WRITE_FILE>"
+```
+
+This is a deterministic, zero-network check: it groups the report's references by normalized URL and
+flags any URL/id cited under two materially different titles (exactly the NoLiMa/HELMET case). It does
+**not** verify that a URL resolves or that the cited figure is actually on the page — it only catches
+that one class of internal inconsistency. If it prints any lines, prepend this block to `WRITE_FILE`
+(one more `Write` call, right after the frontmatter, before the report body) — never silently drop the
+warning and never "fix" the citation yourself (you cannot open the URL from here):
+
+```markdown
+> [!WARNING]
+> **Verificación de citas pendiente.** Este informe tiene referencias que no se pudieron reconciliar
+> automáticamente — abrí cada URL antes de citarla:
+> - <one line per warning from verify_citations.py>
+```
+
+After agy returns (and the citation check above), read the file and return to caller:
 1. The path to the saved file.
-2. The first ~30 lines of the file content (TL;DR / Executive summary section).
+2. The first ~30 lines of the file content (TL;DR / Executive summary section) — if a citation warning
+   block was prepended, it is now part of those first lines, so it surfaces automatically.
 
 #### LOW (timeout: 3m0s)
 
@@ -455,6 +481,7 @@ Rules:
 - Cite using [N] notation that maps to the References list at the end.
 - Mark any claim you could not verify as `[UNVERIFIED]`.
 - Do NOT state release dates, version numbers, parameter counts, prices, or benchmarks unless a cited source directly supports them — never infer or extrapolate a date/version, and never present a future or unreleased item as already shipped. Tie every hard specific to its [N] source.
+- Pricing, model names, and version numbers change fast. If the source you cite for one of those is dated before the current calendar year, say so in the same sentence (e.g. "según [N] (fuente de 2025, puede estar desactualizado)") instead of presenting it as current.
 - Output language: match the language of the topic (default: English).
 
 Output format (markdown):
@@ -488,6 +515,8 @@ Rules:
 - Cite using [N] notation mapped to References.
 - Mark weak claims as `[WEAK EVIDENCE]`.
 - Do NOT state release dates, version numbers, parameter counts, prices, or benchmarks unless a cited source directly supports them — never infer or extrapolate a date/version, and never present a future or unreleased item as already shipped. Tie every hard specific to its [N] source; mark the rest `[UNVERIFIED]`.
+- Pricing, model names, and version numbers change fast. If the source you cite for one of those is dated before the current calendar year, say so in the same sentence (e.g. "según [N] (fuente de 2025, puede estar desactualizado)") instead of presenting it as current. A comparison table of "current" prices/models must not silently mix sources from different years — flag any row that does.
+- Every numbered identifier you cite (arXiv id, DOI, package version) must come from the exact page you found it on for THAT claim — never reuse an id from memory. Two different [N] entries must never point to the same URL/id unless they really are the same source.
 - Output language: match the language of the topic (default: English).
 
 Output format (markdown):
@@ -1255,6 +1284,9 @@ One angle/gap of a larger investigation (orchestrated by the `deep-research-agy`
   - Use web search on the angle. Return 4-8 FALSIFIABLE claims bearing on the overarching question.
   - Each claim: a concrete checkable statement + a direct supporting quote + the source URL(s) + source quality (primary|secondary|blog|forum|unreliable) + recency (YYYY-MM-DD or "unknown").
   - Prefer primary sources. Skip SEO spam / content farms.
+  - The supporting quote MUST be copied verbatim from the page you actually opened — never paraphrase a number/date/id from memory and call it a quote. If you cannot find a verbatim sentence backing the claim, either drop the claim or mark it `[UNVERIFIED]` in the claim text itself.
+  - Any identifier you cite (arXiv id, DOI, package version, model name) must come from the URL/page you opened for THIS claim, never reused from a different source you recall — two different works must never share the same id. If you are not sure an id is right, mark it `[UNVERIFIED]` instead of guessing.
+  - Any price, version number, or benchmark figure must carry the exact publish/updated date of its source in `recency`. If that date is from a previous calendar year, say so explicitly in the claim text (e.g. "... (fuente de 2025, puede estar desactualizado)").
   - End with THREADS TO PULL: things you found that look rich and worth deepening. Classify EACH as decision-critical | contradiction-risk | recency-risk | nice-to-have. Do NOT invent threads to pad — if none, say none.
   - Output language: match the question (default Spanish).
 
@@ -1282,10 +1314,11 @@ Attacks ONE claim looking for refutation (orchestrated by `deep-research-agy`).
   Checklist:
   1. Web-search for contradicting evidence — does any credible source dispute/heavily qualify it?
   2. Is the source quality sufficient for the claim's strength? (extraordinary claims need primary sources)
-  3. Is it outdated? (fast-moving fields — old claims are suspect)
+  3. Is it outdated? (fast-moving fields — old claims are suspect; a price/version/model name from a prior calendar year needs an explicit "may be outdated" caveat)
   4. Is it marketing / press-release / cherry-picked benchmark / forum speculation?
+  5. CITATION INTEGRITY (open the actual source URL(s) attached to this claim, do not skip this): does the URL resolve to a real, specific page (not a 404, not a generic homepage)? Does the exact number/date/id in the claim actually appear on that page? If the claim cites an identifier (arXiv id, DOI, package version), does that id's real title/content match what is being claimed — not some other work? A claim whose URL does not resolve, does not contain the cited fact, or cites a mismatched/reused id must be `kill` or `downgrade`, never `hold`.
 
-  Verdict: kill (unsupported/contradicted/marketing) | downgrade (partly true, weaker than stated) | hold (well-supported, current, source matches strength).
+  Verdict: kill (unsupported/contradicted/marketing/citation does not check out) | downgrade (partly true, weaker than stated, or citation is shaky but the underlying claim survives) | hold (well-supported, current, source matches strength, citation verified by opening it).
   Default to downgrade/kill if uncertain.
 
   OUTPUT INSTRUCTION: Do NOT print to chat. Write a JSON object matching {claim, refuted, refutingEvidence, refutingSource, recencyOk, verdict, newConfidence} via write_file to <WRITE_FILE>. Confirm the path. Only deliverable.
@@ -1333,7 +1366,7 @@ cat "$OUT" 2>/dev/null
 - One `Bash` call for the main `agy` invocation per attempt (mode `research`/`ask`/`review`/`scrape`/`doc-to-md`/`design-review`/`report-generate`/`notebook`/`notebook-index`/`notebook-ask`/`notebook-group`/`transcribe`/`media`/`deep-angle`/`redteam` may retry once if the WRITE_FILE check detects the Windows rename bug — a second `Bash` call to agy is allowed only on retry, not for branching logic).
 - The pre-flight `.tmp` sweep adds one Bash call before agy in every mode. The output-file check adds one Bash call after agy (test -s + optional log tail) in modes with WRITE_FILE.
 - **Response recovery is allowed when output is missing/empty** (issue #76): one Bash call to tail the log for triage, and ONE more recovery Bash call chosen by what the tail shows — the transcript Plan B recovery when `text_drip` is present, or the concurrency-starvation process check (`pgrep`/`Get-Process`) when none of the three known log signatures appear. These are recovery calls, not exploration — only run them when stdout is empty or the WRITE_FILE check failed, never speculatively. `rescue` mode (no WRITE_FILE) may use these same two recovery calls when stdout comes back empty.
-- Mode `record` and `research` may use one additional `Bash` call for post-processing (file moves, ffmpeg) and one `Write` call to prepend frontmatter or append a hint. Mode `setup` may use one additional `Bash` call for the version/log check. Mode `ask` may use one Bash call before agy (mktemp) and one after (rm). Mode `review` may use one Bash call before (size check on DIFF_FILE + mktemp) and one after (rm of both temp dirs). Mode `report-generate` may use one Bash call for output dir setup and one after for image asset moves.
+- Mode `record` and `research` may use one additional `Bash` call for post-processing (file moves, ffmpeg) and one `Write` call to prepend frontmatter or append a hint. Mode `research` may use one MORE `Bash` call to run `verify_citations.py` against the written report and, only if it printed warnings, one MORE `Write` call to prepend the warning block — both skipped when the checker prints nothing. Mode `setup` may use one additional `Bash` call for the version/log check. Mode `ask` may use one Bash call before agy (mktemp) and one after (rm). Mode `review` may use one Bash call before (size check on DIFF_FILE + mktemp) and one after (rm of both temp dirs). Mode `report-generate` may use one Bash call for output dir setup and one after for image asset moves.
 - Do NOT inspect the repository, read other files, grep, monitor progress, or do follow-up reasoning beyond what each mode requires.
 - Do NOT paraphrase, summarize, or rewrite agy's output. Return it as-is.
 - If agy errors out, return the error message verbatim.

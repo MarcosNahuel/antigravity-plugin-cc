@@ -9,7 +9,7 @@ const lib = readFileSync(join(dir, '../deep-research-lib.mjs'), 'utf8')
 const wf = readFileSync(join(dir, '../deep-research-agy.js'), 'utf8')
 
 // Cada función de la lib debe existir inlineada (sin `export`) en el workflow.
-const FNS = ['normURL','domainOf','distinctDomains','corroborationOf','ingestRound','isConverged','computeCoverage','rankClaimsForRedTeam','applyRedTeam']
+const FNS = ['normURL','domainOf','distinctDomains','corroborationOf','ingestRound','isConverged','computeCoverage','rankClaimsForRedTeam','applyRedTeam','citationIntegrityWarnings']
 
 // Functions whose BODIES must stay byte-identical between the lib (source of
 // truth) and the inlined block in the workflow. Includes `initialConfidence`,

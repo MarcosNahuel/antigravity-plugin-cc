@@ -123,6 +123,15 @@ Cobertura sections). Present verbatim — do not paraphrase or re-summarize the 
 
 ## Notes
 
+- **Citation-integrity pass.** Each `deep-angle` call must quote verbatim from the page it opened and
+  never reuse an id/date from memory; the `redteam` pass opens every claim's source URL(s) and kills or
+  downgrades anything whose citation does not check out (URL doesn't resolve, cited figure isn't on the
+  page, or an id like an arXiv number is reused for a different work). After synthesis, the workflow
+  also runs a deterministic check (`citationIntegrityWarnings` in `deep-research-lib.mjs`) over the
+  final `references` list and flags any URL/id cited under two different titles — this is what caught
+  the 2026-09-23 case where NoLiMa and HELMET were both cited under the same arXiv id. Warnings land in
+  `report.evidenceGaps` and render under a `## ⚠ Verificacion de citas` section; do not treat a flagged
+  reference as settled without opening it yourself.
 - `--engines mixed` is a no-op today (agy is the only browsing engine wired in) — don't advertise it
   as multi-engine research until a second engine actually exists.
 - Depth `H` is expensive: up to 4 rounds × up to 6 angles, plus a 10-claim red-team pass, each agy call

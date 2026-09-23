@@ -18,6 +18,14 @@ It checks: **agy CLI** (required), **PyMuPDF/fitz** (required for `/agy:notebook
 **graphify** (optional — `/agy:graph`). Present the table and the fix line for
 anything missing. Prints `STACK n/5 present`.
 
+It also does a **read-only** check of agy's own global `settings.json` (`~/.gemini/antigravity-cli/`)
+for `toolPermission: "always-proceed"`. If found, present the warning block as-is: this plugin already
+runs `agy --print` with `--dangerously-skip-permissions` (required — there is no TTY to answer a
+permission prompt in headless mode), so `always-proceed` on top of that means agy never asks for
+confirmation on anything, from either source. **Never edit this file or any other agy config yourself**
+— only surface the warning and the manual steps to scope it down; changing Nahuel's global agy
+configuration is out of scope for this command.
+
 ## Phase 1 — agy health ping
 
 Route this to the `antigravity:agy-rescue` subagent in MODE: setup.

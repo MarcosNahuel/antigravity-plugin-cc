@@ -93,6 +93,22 @@ function rankClaimsForRedTeam(findings, limit) {
     .slice(0, limit)
 }
 
+function citationIntegrityWarnings(refs) {
+  const byUrl = new Map()
+  for (const r of refs || []) {
+    const u = normURL(r.url)
+    if (!byUrl.has(u)) byUrl.set(u, new Set())
+    byUrl.get(u).add(String(r.title || '').trim().toLowerCase())
+  }
+  const warnings = []
+  for (const [u, titles] of byUrl) {
+    if (titles.size > 1) {
+      warnings.push(`Mismo id/URL citado para titulos distintos (${u}): "${[...titles].join('" / "')}" — una de las dos referencias esta mal asignada, confirmar el id/URL correcto antes de citar.`)
+    }
+  }
+  return warnings
+}
+
 function applyRedTeam(findings, verdicts) {
   const byClaim = new Map()
   for (const v of verdicts || []) if (v && v.claim) byClaim.set(v.claim, v)
@@ -241,5 +257,11 @@ if (!report) {
     evidenceGaps: [], conclusion: { recommendation: '(La síntesis falló; informe degradado desde los findings verificados.)', overallConfidence: 'low' }, references: [],
   }
 }
+const citationWarnings = citationIntegrityWarnings(report.references)
+if (citationWarnings.length) {
+  report.evidenceGaps = [...(report.evidenceGaps || []), ...citationWarnings]
+  if (report.conclusion && report.conclusion.overallConfidence === 'high') report.conclusion.overallConfidence = 'medium'
+}
+coverage.citationWarnings = citationWarnings
 report.coverage = coverage
 return { report, coverage, rounds: round, converged }
