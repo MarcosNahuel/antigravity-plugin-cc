@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm, readFile, access } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, readFile, access, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
@@ -35,7 +35,8 @@ test('argv preserves hostile quotes/unicode literally; stdin is EOF and bypass a
   const reply = JSON.parse(result.stdout);
   assert.equal(reply.args.at(-1), prompt);
   assert.equal(reply.args.at(-2), '--print');
-  assert.equal(reply.input, ''); assert.equal(reply.cwd.toLowerCase(), dir.toLowerCase());
+  assert.equal(reply.input, '');
+  assert.equal(await realpath(reply.cwd), await realpath(dir));
   assert.equal(reply.args.includes('--dangerously-skip-permissions'), false);
   assert.equal(reply.args[reply.args.indexOf('--mode')+1], 'plan');
 }));
