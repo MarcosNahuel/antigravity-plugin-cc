@@ -4,6 +4,19 @@ All notable changes to this plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-10-11
+
+### Added
+
+- Native Codex manifest and 22 portable `agy-*` skills generated from existing command descriptions. Claude slash commands and agent routing are retained.
+- Host integration contract translating Claude-specific fork/Agent/Workflow routing to native host tools, including bounded deep-research orchestration without Workflow.
+- Optional dependency-free Node runner with literal argv, closed stdin, UTF-8 capture, owned process-tree timeout, bounded output, explicit empty/failure statuses and no permission bypass or automatic retry.
+- Windows/macOS/Linux CI and deterministic process fixtures; no cloud credentials or model calls are required by the tests.
+
+### Compatibility
+
+- Node 18+ is optional for the portable runner; the existing Claude command core is unchanged. Authentication and real-model availability remain separate from installing the plugin.
+
 ## [1.6.4] - 2026-09-23
 
 ### Added

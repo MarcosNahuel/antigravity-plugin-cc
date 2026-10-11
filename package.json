@@ -1,7 +1,7 @@
 {
   "name": "antigravity-plugin-cc",
-  "version": "1.6.4",
-  "description": "Claude Code plugin wrapping Google's Antigravity CLI (agy / Gemini 3.x): deep web research with citations, branded HTML reports with infographics from a markdown source (TRAID Design System, 5 templates), one-shot prompts, git-diff code review, code/task rescue, browser recording, web scraping, doc-to-markdown, and UX design review. Thin Bash forwarder, no runtime dependencies. Migration target for gemini-plugin-cc (gemini-cli deprecates 18 Jun 2026).",
+  "version": "1.7.0",
+  "description": "Google Antigravity plugin for Claude Code and Codex: research, notebooks and reports with portable agy skills.",
   "keywords": [
     "claude-code",
     "claude-code-plugin",
@@ -28,7 +28,8 @@
     "code-review",
     "browser-recording",
     "gemini-cli-replacement",
-    "gemini-cli-migration"
+    "gemini-cli-migration",
+    "codex"
   ],
   "bin": {
     "antigravity-plugin-cc": "bin/cli.js"
@@ -61,5 +62,10 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "scripts": {
+    "generate:codex": "node bin/generate-codex-skills.mjs",
+    "check:codex": "node bin/generate-codex-skills.mjs --check",
+    "test": "node --test plugins/antigravity/scripts/tests/*.test.mjs"
   }
 }
