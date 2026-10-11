@@ -19,10 +19,12 @@ const MARKETPLACE = 'marcosnahuel-antigravity';
 if (isPostinstall) {
   // Keep postinstall output to a single quiet line; never fail the install.
   console.log(
-    `\nantigravity-plugin-cc@${pkg.version} fetched. This is a Claude Code plugin.\n` +
+    `\nantigravity-plugin-cc@${pkg.version} fetched. This is a Claude Code and Codex plugin.\n` +
     `Install it into Claude Code with:\n` +
     `  /plugin marketplace add ${REPO}\n` +
     `  /plugin install antigravity@${MARKETPLACE}\n` +
+    `Codex: codex plugin marketplace add ${REPO}\n` +
+    `  codex plugin add antigravity@${MARKETPLACE}\n` +
     `Run \`npx ${pkg.name}\` for details.\n`
   );
   process.exit(0);
@@ -31,7 +33,7 @@ if (isPostinstall) {
 console.log(`
 antigravity-plugin-cc  v${pkg.version}
 ${'-'.repeat(40)}
-A Claude Code plugin that wraps Google's Antigravity CLI (agy / Gemini 3.x).
+A Claude Code and Codex plugin that wraps Google's Antigravity CLI (agy / Gemini 3.x).
 It is NOT a standalone CLI — install it into Claude Code:
 
   1) Add the marketplace:
@@ -39,6 +41,11 @@ It is NOT a standalone CLI — install it into Claude Code:
 
   2) Install the plugin:
        /plugin install antigravity@${MARKETPLACE}
+
+Codex installation:
+  codex plugin marketplace add ${REPO}
+  codex plugin add antigravity@${MARKETPLACE}
+  Skills: $agy-ask, $agy-research, $agy-deep-research, $agy-setup
 
 Then use the slash commands inside Claude Code:
   /agy:research <topic> [--intensity low|medium|high]

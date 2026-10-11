@@ -1,4 +1,4 @@
-# Antigravity Plugin for Claude Code
+# Antigravity Plugin for Claude Code and Codex
 
 > **A local NotebookLM, multi-agent deep research, and 21 more commands — for Claude Code, powered by Google Antigravity (`agy` / Gemini 3.x), the official CLI that replaces the now-deprecated `gemini-cli`. Read whole folders of documents, transcribe audio & video, and research the web with citations — locally, offloading the heavy reading to Gemini so it barely touches Claude's context.**
 
@@ -37,6 +37,23 @@
 </p>
 
 ---
+
+## Codex support (1.7.0)
+
+The same plugin now exports 22 portable `agy-*` skills alongside the existing Claude slash commands. Install with:
+
+```text
+codex plugin marketplace add MarcosNahuel/antigravity-plugin-cc
+codex plugin add antigravity@marcosnahuel-antigravity
+```
+
+In Codex invoke `$agy-ask`, `$agy-research`, `$agy-deep-research`, `$agy-setup`, or the matching `agy-*` skill for another command. Do not expect Claude's `/agy:*` slash syntax or its Agent/Workflow APIs in Codex. Existing Claude commands remain unchanged.
+
+The optional cross-platform `scripts/host-runner.mjs` uses Node 18+ without npm dependencies. It defaults to plan mode, uses literal argv and closed stdin, enforces a timeout, refuses existing result files, and does not bypass permissions or retry. The host writes deliverables from the captured JSON response. Deep research has a bounded native-host fallback when Workflow is unavailable. See [host integration](plugins/antigravity/references/host-integration.md).
+
+Installing/loading skills is separate from authenticating AGY and running real model requests. Extra notebook/graph/report dependencies still apply to their modes. Codex's optional Node helper does not add a mandatory runtime dependency to the existing Claude commands.
+
+For contributors: run `npm run generate:codex` after changing command descriptions, then `npm test`. Generated entrypoints reference the shared command files; do not edit the exports by hand.
 
 ## What is this?
 

@@ -2,8 +2,8 @@
 
 Thanks for considering a contribution! This plugin is intentionally small and dependency-free, so the bar for "is it a good fit?" is straightforward:
 
-- It must be useful to a typical Claude Code user invoking `agy`.
-- It must not introduce a runtime dependency (no Node.js, no Python, no compiled binaries beyond `agy` itself).
+- It must be useful to a typical Claude Code or Codex user invoking `agy`.
+- Keep the existing Claude command core free of new mandatory runtime dependencies. Portable host helpers and advanced modes may use documented optional runtimes.
 - It must work on Windows, macOS, and Linux.
 
 ## Quick start for development
@@ -24,7 +24,7 @@ Thanks for considering a contribution! This plugin is intentionally small and de
 
 ## What we'll likely say no to
 
-- Adding a Node.js or Python companion runtime. The whole point of this plugin is that it's a thin Bash forwarder.
+- Making optional Node/Python helpers mandatory for all Claude commands.
 - Wrapping `agy` features that `agy` already exposes well (e.g., re-implementing `agy --conversation <id>` management).
 - Hard dependencies on Windows-only or Unix-only tooling.
 
